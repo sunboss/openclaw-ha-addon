@@ -1,0 +1,1851 @@
+use clap::{Args, Parser, Subcommand};
+use rand::random;
+use serde::Deserialize;
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::{Command as StdCommand, ExitCode, Stdio},
+    time::Duration,
+};
+use tokio::{
+    io::{AsyncBufReadExt, AsyncRead, BufReader},
+    process::Command,
+    signal,
+    sync::watch,
+    time::sleep,
+};
+use url::Url;
+
+#[derive(Parser)]
+#[command(name = "addon-supervisor")]
+struct Cli {
+    #[command(subcommand)]
+    command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+    HaosEntry(HaosEntryArgs),
+    RunServices {
+        #[arg(long, default_value = "openclaw")]
+        gateway_bin: String,
+        #[arg(long, default_value = "haos-ui")]
+        ui_bin: String,
+        #[arg(long, default_value = "ingressd")]
+        ingress_bin: String,
+        #[arg(long, default_value = "ttyd")]
+        ttyd_bin: String,
+        #[arg(long, default_value_t = true)]
+        run_doctor_on_start: bool,
+    },
+}
+
+#[derive(Args, Clone, Debug)]
+struct HaosEntryArgs {
+    #[arg(long, default_value = "/data/options.json")]
+    options_file: PathBuf,
+    #[arg(long, default_value = "/config/.openclaw")]
+    openclaw_config_dir: PathBuf,
+    #[arg(long, default_value = "/config/.openclaw/openclaw.json")]
+    openclaw_config_path: PathBuf,
+    #[arg(long, default_value = "/config/.openclaw/workspace")]
+    openclaw_workspace_dir: PathBuf,
+    #[arg(long, default_value = "/config/.mcporter")]
+    mcporter_home_dir: PathBuf,
+    #[arg(long, default_value = "/config/.mcporter/mcporter.json")]
+    mcporter_config: PathBuf,
+    #[arg(long, default_value = "/config/certs")]
+    cert_dir: PathBuf,
+    #[arg(long, default_value = "/run/openclaw-rs/public")]
+    public_share_dir: PathBuf,
+    #[arg(long, default_value_t = 18790)]
+    gateway_internal_port: u16,
+    #[arg(long, default_value_t = 48101)]
+    ui_port: u16,
+    #[arg(long, default_value = "openclaw")]
+    gateway_bin: String,
+    #[arg(long, default_value = "oc-config")]
+    oc_config_bin: String,
+    #[arg(long, default_value = "haos-ui")]
+    ui_bin: String,
+    #[arg(long, default_value = "ingressd")]
+    ingress_bin: String,
+    #[arg(long, default_value = "ttyd")]
+    ttyd_bin: String,
+}
+
+#[derive(Debug, Clone, Deserialize, Default)]
+struct AddonOptions {
+    timezone: Option<String>,
+    disable_bonjour: Option<bool>,
+    enable_terminal: Option<bool>,
+    terminal_port: Option<u16>,
+    gateway_mode: Option<String>,
+    gateway_remote_url: Option<String>,
+    gateway_bind_mode: Option<String>,
+    gateway_port: Option<u16>,
+    gateway_public_url: Option<String>,
+    gateway_auth_mode: Option<String>,
+    homeassistant_token: Option<String>,
+    http_proxy: Option<String>,
+    gateway_trusted_proxies: Option<String>,
+    gateway_additional_allowed_origins: Option<String>,
+    enable_openai_api: Option<bool>,
+    auto_configure_mcp: Option<bool>,
+    run_doctor_on_start: Option<bool>,
+}
+
+#[derive(Debug, Clone)]
+struct RuntimeSettings {
+    timezone: String,
+    disable_bonjour: bool,
+    enable_terminal: bool,
+    terminal_port: u16,
+    gateway_mode: String,
+    gateway_remote_url: String,
+    gateway_bind_mode: String,
+    gateway_port: u16,
+    gateway_public_url: String,
+    gateway_auth_mode: String,
+    homeassistant_token: String,
+    http_proxy: String,
+    gateway_trusted_proxies: Vec<String>,
+    gateway_additional_allowed_origins: Vec<String>,
+    enable_openai_api: bool,
+    auto_configure_mcp: bool,
+    run_doctor_on_start: bool,
+}
+
+fn main() -> ExitCode {
+    let cli = Cli::parse();
+    match cli.command {
+        Commands::HaosEntry(args) => haos_entry(args),
+        Commands::RunServices {
+            gateway_bin,
+            ui_bin,
+            ingress_bin,
+            ttyd_bin,
+            run_doctor_on_start,
+        } => run_services(
+            gateway_bin,
+            ui_bin,
+            ingress_bin,
+            ttyd_bin,
+            run_doctor_on_start,
+        ),
+    }
+}
+
+fn haos_entry(args: HaosEntryArgs) -> ExitCode {
+    let options = load_options(&args.options_file);
+    let settings = runtime_settings(&options);
+
+    if let Err(err) = prepare_directories(&args) {
+        eprintln!("addon-supervisor: failed to prepare directories: {err}");
+        return ExitCode::from(1);
+    }
+
+    if let Err(err) = ensure_mcporter_config(&args) {
+        eprintln!("addon-supervisor: failed to prepare MCPorter config: {err}");
+        return ExitCode::from(1);
+    }
+
+    if let Err(err) = ensure_home_symlinks(&args) {
+        eprintln!("addon-supervisor: failed to prepare home links: {err}");
+        return ExitCode::from(1);
+    }
+
+    if let Err(err) = bootstrap_openclaw_config(&args, &settings) {
+        eprintln!("addon-supervisor: failed to bootstrap OpenClaw config: {err}");
+        return ExitCode::from(1);
+    }
+
+    apply_runtime_env(&args, &settings);
+
+    if !apply_gateway_settings(&args, &settings) {
+        return ExitCode::from(1);
+    }
+
+    let gateway_token =
+        run_capture(&args.oc_config_bin, &["get", "gateway.auth.token"]).unwrap_or_default();
+
+    if !write_gateway_token_file(&args, &gateway_token) {
+        return ExitCode::from(1);
+    }
+
+    if !ensure_certificate_files(&args) {
+        return ExitCode::from(1);
+    }
+
+    if settings.auto_configure_mcp && !settings.homeassistant_token.is_empty() {
+        let _ = configure_home_assistant_mcp(&args, &settings.homeassistant_token);
+    }
+
+    let add_on_version = detect_addon_version();
+    let openclaw_version = detect_openclaw_version(&args.gateway_bin);
+    apply_status_env(&add_on_version, &openclaw_version);
+
+    run_services(
+        args.gateway_bin,
+        args.ui_bin,
+        args.ingress_bin,
+        args.ttyd_bin,
+        settings.run_doctor_on_start,
+    )
+}
+
+fn load_options(path: &Path) -> AddonOptions {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<AddonOptions>(&text).ok())
+        .unwrap_or_default()
+}
+
+fn runtime_settings(options: &AddonOptions) -> RuntimeSettings {
+    RuntimeSettings {
+        timezone: options
+            .timezone
+            .clone()
+            .unwrap_or_else(|| "Asia/Shanghai".to_string()),
+        disable_bonjour: options.disable_bonjour.unwrap_or(true),
+        enable_terminal: options.enable_terminal.unwrap_or(true),
+        terminal_port: options.terminal_port.unwrap_or(7681),
+        gateway_mode: options
+            .gateway_mode
+            .clone()
+            .unwrap_or_else(|| "local".to_string()),
+        gateway_remote_url: options.gateway_remote_url.clone().unwrap_or_default(),
+        gateway_bind_mode: options
+            .gateway_bind_mode
+            .clone()
+            .unwrap_or_else(|| "loopback".to_string()),
+        gateway_port: options.gateway_port.unwrap_or(18789),
+        gateway_public_url: options.gateway_public_url.clone().unwrap_or_default(),
+        gateway_auth_mode: options
+            .gateway_auth_mode
+            .clone()
+            .unwrap_or_else(|| "token".to_string()),
+        homeassistant_token: options.homeassistant_token.clone().unwrap_or_default(),
+        http_proxy: options.http_proxy.clone().unwrap_or_default(),
+        gateway_trusted_proxies: split_csv_like(options.gateway_trusted_proxies.as_deref()),
+        gateway_additional_allowed_origins: split_csv_like(
+            options.gateway_additional_allowed_origins.as_deref(),
+        ),
+        enable_openai_api: options.enable_openai_api.unwrap_or(true),
+        auto_configure_mcp: options.auto_configure_mcp.unwrap_or(true),
+        run_doctor_on_start: options.run_doctor_on_start.unwrap_or(false),
+    }
+}
+
+fn split_csv_like(value: Option<&str>) -> Vec<String> {
+    let Some(value) = value else {
+        return Vec::new();
+    };
+
+    value
+        .split([',', '\n', '\r'])
+        .map(str::trim)
+        .filter(|item| !item.is_empty())
+        .map(ToOwned::to_owned)
+        .collect()
+}
+
+fn load_runtime_config(path: &Path) -> Option<serde_json::Value> {
+    fs::read_to_string(path)
+        .ok()
+        .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+}
+
+fn json_string_path(config: &serde_json::Value, path: &str) -> Option<String> {
+    let mut current = config;
+    for part in path.split('.').filter(|part| !part.is_empty()) {
+        current = current.get(part)?;
+    }
+    current
+        .as_str()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+}
+
+fn detect_runtime_model(config: &serde_json::Value) -> Option<String> {
+    json_string_path(config, "agents.defaults.model.primary")
+        .or_else(|| json_string_path(config, "agents.defaults.model"))
+        .or_else(|| json_string_path(config, "gateway.agent.model"))
+        .or_else(|| json_string_path(config, "agent.model"))
+        .or_else(|| json_string_path(config, "model"))
+}
+
+fn prepare_directories(args: &HaosEntryArgs) -> std::io::Result<()> {
+    for path in [
+        &args.openclaw_config_dir,
+        &args.openclaw_config_dir.join("agents"),
+        &args.openclaw_config_dir.join("agents/main"),
+        &args.openclaw_config_dir.join("agents/main/sessions"),
+        &args.openclaw_config_dir.join("agents/main/agent"),
+        &args.openclaw_config_dir.join("identity"),
+        &args.openclaw_workspace_dir,
+        &args.openclaw_workspace_dir.join("memory"),
+        &args.mcporter_home_dir,
+        &args.cert_dir,
+        &args.public_share_dir,
+        &PathBuf::from("/var/tmp/openclaw-compile-cache"),
+    ] {
+        fs::create_dir_all(path)?;
+    }
+    Ok(())
+}
+
+fn ensure_mcporter_config(args: &HaosEntryArgs) -> std::io::Result<()> {
+    if args.mcporter_config.exists() {
+        return Ok(());
+    }
+
+    if let Some(parent) = args.mcporter_config.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(&args.mcporter_config, "{\"mcpServers\":{}}\n")
+}
+
+fn ensure_home_symlinks(args: &HaosEntryArgs) -> std::io::Result<()> {
+    let root_openclaw = Path::new("/root/.openclaw");
+    if root_openclaw.exists() {
+        let metadata = fs::symlink_metadata(root_openclaw)?;
+        if metadata.file_type().is_symlink() {
+            let current = fs::read_link(root_openclaw)?;
+            if current != args.openclaw_config_dir {
+                fs::remove_file(root_openclaw)?;
+                create_dir_symlink(&args.openclaw_config_dir, root_openclaw)?;
+            }
+        } else if metadata.is_dir() {
+            for entry in fs::read_dir(root_openclaw)? {
+                let entry = entry?;
+                let target = args.openclaw_config_dir.join(entry.file_name());
+                if !target.exists() {
+                    if entry.file_type()?.is_dir() {
+                        fs::create_dir_all(&target)?;
+                    } else {
+                        let _ = fs::copy(entry.path(), &target);
+                    }
+                }
+            }
+        }
+    } else {
+        create_dir_symlink(&args.openclaw_config_dir, root_openclaw)?;
+    }
+    Ok(())
+}
+
+#[cfg(unix)]
+fn create_dir_symlink(src: &Path, dst: &Path) -> std::io::Result<()> {
+    std::os::unix::fs::symlink(src, dst)
+}
+
+#[cfg(not(unix))]
+fn create_dir_symlink(_src: &Path, _dst: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+fn bootstrap_openclaw_config(
+    args: &HaosEntryArgs,
+    settings: &RuntimeSettings,
+) -> std::io::Result<()> {
+    let mut config = if args.openclaw_config_path.exists() {
+        fs::read_to_string(&args.openclaw_config_path)
+            .ok()
+            .and_then(|text| serde_json::from_str::<serde_json::Value>(&text).ok())
+            .unwrap_or_else(|| serde_json::json!({}))
+    } else {
+        let token = generate_gateway_token();
+        serde_json::json!({
+            "gateway": {
+                "mode": "local",
+                "bind": "loopback",
+                "port": args.gateway_internal_port,
+                "trustedProxies": ["127.0.0.1/32", "::1/128"],
+                "auth": {
+                    "mode": "token",
+                    "token": token
+                },
+                "http": {
+                    "endpoints": {
+                        "chatCompletions": {
+                            "enabled": true
+                        }
+                    }
+                }
+            }
+        })
+    };
+    if let Some(object) = config.as_object_mut() {
+        object.remove("workspaceDir");
+    }
+    ensure_agent_defaults(&mut config, args, settings);
+    ensure_gateway_defaults(&mut config, args, settings);
+    ensure_trusted_local_plugins(&mut config, args);
+
+    if let Some(parent) = args.openclaw_config_path.parent() {
+        fs::create_dir_all(parent)?;
+    }
+    fs::write(
+        &args.openclaw_config_path,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&config).unwrap_or_else(|_| "{}".to_string())
+        ),
+    )?;
+    Ok(())
+}
+
+fn ensure_agent_defaults(
+    config: &mut serde_json::Value,
+    args: &HaosEntryArgs,
+    settings: &RuntimeSettings,
+) {
+    if !config.is_object() {
+        *config = serde_json::json!({});
+    }
+
+    let root = config.as_object_mut().expect("config object");
+    let agents = root
+        .entry("agents".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !agents.is_object() {
+        *agents = serde_json::json!({});
+    }
+
+    let defaults = agents
+        .as_object_mut()
+        .expect("agents object")
+        .entry("defaults".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !defaults.is_object() {
+        *defaults = serde_json::json!({});
+    }
+
+    let defaults = defaults.as_object_mut().expect("defaults object");
+    defaults.insert(
+        "workspace".to_string(),
+        serde_json::Value::String(args.openclaw_workspace_dir.display().to_string()),
+    );
+    defaults.insert(
+        "userTimezone".to_string(),
+        serde_json::Value::String(settings.timezone.clone()),
+    );
+}
+
+fn ensure_gateway_defaults(
+    config: &mut serde_json::Value,
+    args: &HaosEntryArgs,
+    settings: &RuntimeSettings,
+) {
+    if !config.is_object() {
+        *config = serde_json::json!({});
+    }
+
+    let root = config.as_object_mut().expect("config object");
+    let gateway = root
+        .entry("gateway".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !gateway.is_object() {
+        *gateway = serde_json::json!({});
+    }
+
+    let gateway = gateway.as_object_mut().expect("gateway object");
+    gateway.insert(
+        "mode".to_string(),
+        serde_json::Value::String(settings.gateway_mode.clone()),
+    );
+    gateway.insert(
+        "bind".to_string(),
+        serde_json::Value::String(settings.gateway_bind_mode.clone()),
+    );
+    gateway.insert(
+        "port".to_string(),
+        serde_json::Value::Number(serde_json::Number::from(args.gateway_internal_port)),
+    );
+
+    let remote = gateway
+        .entry("remote".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !remote.is_object() {
+        *remote = serde_json::json!({});
+    }
+    let remote = remote.as_object_mut().expect("remote object");
+    if settings.gateway_remote_url.trim().is_empty() {
+        remote.remove("url");
+    } else {
+        remote.insert(
+            "url".to_string(),
+            serde_json::Value::String(settings.gateway_remote_url.clone()),
+        );
+    }
+
+    let trusted_proxies = gateway
+        .entry("trustedProxies".to_string())
+        .or_insert_with(|| serde_json::json!(["127.0.0.1/32", "::1/128"]));
+    if !trusted_proxies.is_array() {
+        *trusted_proxies = serde_json::json!(["127.0.0.1/32", "::1/128"]);
+    }
+
+    let auth = gateway
+        .entry("auth".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !auth.is_object() {
+        *auth = serde_json::json!({});
+    }
+    let auth = auth.as_object_mut().expect("auth object");
+    auth.insert(
+        "mode".to_string(),
+        serde_json::Value::String(settings.gateway_auth_mode.clone()),
+    );
+    if !matches!(auth.get("token"), Some(value) if value.is_string()) {
+        auth.insert(
+            "token".to_string(),
+            serde_json::Value::String(generate_gateway_token()),
+        );
+    }
+
+    let http = gateway
+        .entry("http".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !http.is_object() {
+        *http = serde_json::json!({});
+    }
+    let http = http.as_object_mut().expect("http object");
+    let endpoints = http
+        .entry("endpoints".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !endpoints.is_object() {
+        *endpoints = serde_json::json!({});
+    }
+    let endpoints = endpoints.as_object_mut().expect("endpoints object");
+    let chat_completions = endpoints
+        .entry("chatCompletions".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !chat_completions.is_object() {
+        *chat_completions = serde_json::json!({});
+    }
+    let chat_completions = chat_completions
+        .as_object_mut()
+        .expect("chatCompletions object");
+    if !matches!(chat_completions.get("enabled"), Some(value) if value.is_boolean()) {
+        chat_completions.insert(
+            "enabled".to_string(),
+            serde_json::Value::Bool(settings.enable_openai_api),
+        );
+    }
+}
+
+fn ensure_trusted_local_plugins(config: &mut serde_json::Value, args: &HaosEntryArgs) {
+    let discovered = discover_local_plugin_ids(args);
+    if discovered.is_empty() {
+        return;
+    }
+
+    if !config.is_object() {
+        *config = serde_json::json!({});
+    }
+
+    let root = config.as_object_mut().expect("config object");
+    let plugins = root
+        .entry("plugins".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !plugins.is_object() {
+        *plugins = serde_json::json!({});
+    }
+
+    let allow = plugins
+        .as_object_mut()
+        .expect("plugins object")
+        .entry("allow".to_string())
+        .or_insert_with(|| serde_json::json!([]));
+    if !allow.is_array() {
+        *allow = serde_json::json!([]);
+    }
+
+    let allow_values = allow.as_array_mut().expect("allow array");
+    let mut merged = allow_values
+        .iter()
+        .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+        .collect::<Vec<_>>();
+
+    for plugin_id in discovered {
+        if !merged.iter().any(|existing| existing == &plugin_id) {
+            merged.push(plugin_id);
+        }
+    }
+
+    merged.sort();
+    merged.dedup();
+
+    *allow_values = merged
+        .into_iter()
+        .map(serde_json::Value::String)
+        .collect::<Vec<_>>();
+}
+
+fn discover_local_plugin_ids(args: &HaosEntryArgs) -> Vec<String> {
+    let plugin_root = args.openclaw_config_dir.join("extensions");
+    let entries = match fs::read_dir(plugin_root) {
+        Ok(entries) => entries,
+        Err(_) => return Vec::new(),
+    };
+
+    let mut ids = Vec::new();
+    for entry in entries.flatten() {
+        let path = entry.path();
+        let file_type = match entry.file_type() {
+            Ok(file_type) => file_type,
+            Err(_) => continue,
+        };
+
+        if file_type.is_file() {
+            if path.extension().and_then(|value| value.to_str()) == Some("ts")
+                && let Some(stem) = path.file_stem().and_then(|value| value.to_str())
+                && !stem.is_empty()
+            {
+                ids.push(stem.to_string());
+            }
+            continue;
+        }
+
+        if file_type.is_dir()
+            && path.join("index.ts").exists()
+            && let Some(name) = path.file_name().and_then(|value| value.to_str())
+            && !name.is_empty()
+        {
+            ids.push(name.to_string());
+        }
+    }
+
+    ids.sort();
+    ids.dedup();
+    ids
+}
+
+fn generate_gateway_token() -> String {
+    let bytes: [u8; 24] = random();
+    bytes.iter().map(|byte| format!("{byte:02x}")).collect()
+}
+
+fn apply_runtime_env(args: &HaosEntryArgs, settings: &RuntimeSettings) {
+    unsafe {
+        env::set_var("HOME", "/config");
+        env::set_var("TZ", &settings.timezone);
+        env::set_var("OPENCLAW_CONFIG_DIR", &args.openclaw_config_dir);
+        env::set_var("OPENCLAW_CONFIG_PATH", &args.openclaw_config_path);
+        env::set_var("OPENCLAW_STATE_DIR", &args.openclaw_config_dir);
+        env::set_var("OPENCLAW_WORKSPACE_DIR", &args.openclaw_workspace_dir);
+        env::set_var("XDG_CONFIG_HOME", "/config");
+        env::set_var("OPENCLAW_NO_RESPAWN", "1");
+        env::set_var("NODE_COMPILE_CACHE", "/var/tmp/openclaw-compile-cache");
+        env::set_var("MCPORTER_HOME_DIR", &args.mcporter_home_dir);
+        env::set_var("MCPORTER_CONFIG", &args.mcporter_config);
+        env::set_var("PUBLIC_SHARE_DIR", &args.public_share_dir);
+        env::set_var("UI_PORT", args.ui_port.to_string());
+        env::set_var("INGRESS_PORT", "48099");
+        env::set_var("TTYD_PORT", settings.terminal_port.to_string());
+        env::set_var("GW_PUBLIC_URL", &settings.gateway_public_url);
+        env::set_var("GW_PUBLIC_PORT", settings.gateway_port.to_string());
+        env::set_var("HTTPS_PORT", settings.gateway_port.to_string());
+        env::set_var(
+            "OPENCLAW_TERMINAL_ENABLED",
+            if settings.enable_terminal { "1" } else { "0" },
+        );
+        env::set_var(
+            "OPENCLAW_DISABLE_BONJOUR",
+            if settings.disable_bonjour { "1" } else { "0" },
+        );
+        env::set_var(
+            "GATEWAY_INTERNAL_PORT",
+            args.gateway_internal_port.to_string(),
+        );
+
+        if let Some(config) = load_runtime_config(&args.openclaw_config_path) {
+            if let Some(token) = json_string_path(&config, "gateway.auth.token") {
+                env::set_var("OPENCLAW_GATEWAY_TOKEN", token);
+            } else {
+                env::remove_var("OPENCLAW_GATEWAY_TOKEN");
+            }
+
+            if let Some(model) = detect_runtime_model(&config) {
+                env::set_var("OPENCLAW_MODEL_PRIMARY", model);
+            } else {
+                env::remove_var("OPENCLAW_MODEL_PRIMARY");
+            }
+        } else {
+            env::remove_var("OPENCLAW_GATEWAY_TOKEN");
+            env::remove_var("OPENCLAW_MODEL_PRIMARY");
+        }
+
+        if settings.http_proxy.trim().is_empty() {
+            env::remove_var("HTTP_PROXY");
+            env::remove_var("HTTPS_PROXY");
+            env::remove_var("http_proxy");
+            env::remove_var("https_proxy");
+        } else {
+            env::set_var("HTTP_PROXY", &settings.http_proxy);
+            env::set_var("HTTPS_PROXY", &settings.http_proxy);
+            env::set_var("http_proxy", &settings.http_proxy);
+            env::set_var("https_proxy", &settings.http_proxy);
+        }
+    }
+}
+
+fn apply_status_env(add_on_version: &str, openclaw_version: &str) {
+    unsafe {
+        env::set_var("ADDON_VERSION", add_on_version);
+        env::set_var("OPENCLAW_VERSION", openclaw_version);
+    }
+}
+
+fn apply_gateway_settings(args: &HaosEntryArgs, settings: &RuntimeSettings) -> bool {
+    let trusted_proxies = merged_trusted_proxies(settings);
+    let applied = run_status(
+        &args.oc_config_bin,
+        &[
+            "apply-gateway-settings",
+            "local",
+            "",
+            "loopback",
+            &args.gateway_internal_port.to_string(),
+            if settings.enable_openai_api {
+                "true"
+            } else {
+                "false"
+            },
+            "token",
+            &trusted_proxies.join(","),
+        ],
+    );
+    if !applied {
+        return false;
+    }
+
+    let allowed_origins = build_control_ui_allowed_origins(settings);
+    let allowed_origins_json =
+        serde_json::to_string(&allowed_origins).unwrap_or_else(|_| "[]".to_string());
+
+    run_status(
+        &args.oc_config_bin,
+        &[
+            "set",
+            "gateway.controlUi.allowedOrigins",
+            &allowed_origins_json,
+            "--json",
+        ],
+    )
+}
+
+fn merged_trusted_proxies(settings: &RuntimeSettings) -> Vec<String> {
+    let mut proxies = vec!["127.0.0.1/32".to_string(), "::1/128".to_string()];
+    for proxy in &settings.gateway_trusted_proxies {
+        if !proxies.iter().any(|existing| existing == proxy) {
+            proxies.push(proxy.clone());
+        }
+    }
+    proxies
+}
+
+fn build_control_ui_allowed_origins(settings: &RuntimeSettings) -> Vec<String> {
+    let mut origins = Vec::<String>::new();
+    let gateway_port = settings.gateway_port;
+    let scheme = "https";
+
+    for ip in detect_lan_ips() {
+        origins.push(format!("{scheme}://{ip}:{gateway_port}"));
+    }
+    origins.push(format!("{scheme}://localhost:{gateway_port}"));
+    origins.push(format!("{scheme}://127.0.0.1:{gateway_port}"));
+    origins.push(format!("{scheme}://homeassistant.local:{gateway_port}"));
+    origins.push(format!("{scheme}://homeassistant:{gateway_port}"));
+
+    if !settings.gateway_public_url.trim().is_empty()
+        && let Ok(parsed) = Url::parse(settings.gateway_public_url.trim())
+        && let Some(host) = parsed.host_str()
+    {
+        let origin = if let Some(port) = parsed.port() {
+            format!("{}://{}:{}", parsed.scheme(), host, port)
+        } else {
+            format!("{}://{}", parsed.scheme(), host)
+        };
+        origins.push(origin);
+    }
+
+    origins.extend(settings.gateway_additional_allowed_origins.iter().cloned());
+
+    origins.sort();
+    origins.dedup();
+    origins
+}
+
+fn detect_lan_ips() -> Vec<String> {
+    let mut ips = detect_lan_ips_from_ip_command();
+    if ips.is_empty()
+        && let Some(ip) = detect_lan_ip()
+    {
+        ips.push(ip);
+    }
+    ips.sort();
+    ips.dedup();
+    ips
+}
+
+fn detect_lan_ips_from_ip_command() -> Vec<String> {
+    let output = match StdCommand::new("ip")
+        .args(["-o", "-4", "addr", "show", "up", "scope", "global"])
+        .output()
+    {
+        Ok(output) if output.status.success() => output,
+        _ => return Vec::new(),
+    };
+
+    parse_ipv4_addrs_from_ip_addr_output(&String::from_utf8_lossy(&output.stdout))
+}
+
+fn parse_ipv4_addrs_from_ip_addr_output(output: &str) -> Vec<String> {
+    output
+        .lines()
+        .filter_map(|line| {
+            let mut parts = line.split_whitespace();
+            while let Some(part) = parts.next() {
+                if part == "inet" {
+                    let cidr = parts.next()?;
+                    return cidr.split('/').next().map(|ip| ip.to_string());
+                }
+            }
+            None
+        })
+        .collect()
+}
+
+fn detect_lan_ip() -> Option<String> {
+    let socket = std::net::UdpSocket::bind("0.0.0.0:0").ok()?;
+    socket.connect("8.8.8.8:80").ok()?;
+    let local = socket.local_addr().ok()?;
+    Some(local.ip().to_string())
+}
+
+fn write_gateway_token_file(args: &HaosEntryArgs, token: &str) -> bool {
+    let path = args.public_share_dir.join("gateway.token");
+    if let Err(err) = fs::write(&path, token) {
+        eprintln!(
+            "addon-supervisor: failed to write gateway token file {}: {}",
+            path.display(),
+            err
+        );
+        return false;
+    }
+    let _ = set_mode_600(&path);
+    true
+}
+
+fn ensure_certificate_files(args: &HaosEntryArgs) -> bool {
+    let gateway_key = args.cert_dir.join("gateway.key");
+    let gateway_crt = args.cert_dir.join("gateway.crt");
+    if !gateway_key.exists()
+        || !gateway_crt.exists()
+        || certificate_needs_regeneration(&gateway_crt)
+    {
+        let status = StdCommand::new("openssl")
+            .args(["req", "-x509", "-nodes", "-newkey", "rsa:2048", "-keyout"])
+            .arg(&gateway_key)
+            .args(["-out"])
+            .arg(&gateway_crt)
+            .args(["-days", "3650", "-subj", "/CN=OpenClaw HA Add-on"])
+            .status();
+        match status {
+            Ok(result) if result.success() => {}
+            Ok(result) => {
+                eprintln!(
+                    "addon-supervisor: openssl exited with status {:?}",
+                    result.code()
+                );
+                return false;
+            }
+            Err(err) => {
+                eprintln!("addon-supervisor: failed to invoke openssl: {err}");
+                return false;
+            }
+        }
+    }
+
+    let ca_target = args.public_share_dir.join("openclaw-ca.crt");
+    if let Err(err) = fs::copy(&gateway_crt, &ca_target) {
+        eprintln!(
+            "addon-supervisor: failed to copy certificate to {}: {}",
+            ca_target.display(),
+            err
+        );
+        return false;
+    }
+    let _ = set_mode_600(&gateway_key);
+    let _ = set_mode_600(&ca_target);
+    let _ = set_mode_600(&args.openclaw_config_path);
+    true
+}
+
+fn certificate_renew_before_seconds() -> u64 {
+    30 * 24 * 60 * 60
+}
+
+fn certificate_needs_regeneration(cert_path: &Path) -> bool {
+    let renew_before = certificate_renew_before_seconds().to_string();
+    let status = StdCommand::new("openssl")
+        .args(["x509", "-checkend", &renew_before, "-noout", "-in"])
+        .arg(cert_path)
+        .status();
+
+    match status {
+        Ok(status) => !status.success(),
+        Err(_) => true,
+    }
+}
+
+#[cfg(unix)]
+fn set_mode_600(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, PermissionsExt::from_mode(0o600))
+}
+
+#[cfg(not(unix))]
+fn set_mode_600(_path: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+fn detect_openclaw_version(gateway_bin: &str) -> String {
+    run_capture(gateway_bin, &["--version"])
+        .and_then(|output| {
+            output
+                .split_whitespace()
+                .map(|token| {
+                    token.trim_matches(|c: char| {
+                        !(c.is_ascii_alphanumeric() || c == '.' || c == '-')
+                    })
+                })
+                .find(|token| {
+                    let mut parts = token.split('.');
+                    let first = parts.next().unwrap_or_default();
+                    let second = parts.next().unwrap_or_default();
+                    first.chars().all(|c| c.is_ascii_digit())
+                        && second.chars().all(|c| c.is_ascii_digit())
+                })
+                .map(|s| s.to_string())
+        })
+        .unwrap_or_else(|| "unknown".to_string())
+}
+
+fn detect_addon_version() -> String {
+    env::var("ADDON_VERSION").unwrap_or_else(|_| "unknown".to_string())
+}
+
+fn run_capture(program: &str, args: &[&str]) -> Option<String> {
+    let output = StdCommand::new(program).args(args).output().ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() { None } else { Some(text) }
+}
+
+fn run_status(program: &str, args: &[&str]) -> bool {
+    match StdCommand::new(program).args(args).status() {
+        Ok(status) => status.success(),
+        Err(err) => {
+            eprintln!("addon-supervisor: failed to run {}: {}", program, err);
+            false
+        }
+    }
+}
+
+fn configure_home_assistant_mcp(args: &HaosEntryArgs, homeassistant_token: &str) -> bool {
+    if let Err(err) = upsert_home_assistant_mcp_server(args, homeassistant_token) {
+        eprintln!("addon-supervisor: failed to configure Home Assistant MCP server: {err}");
+        return false;
+    }
+    true
+}
+
+fn ensure_runtime_dir() -> std::io::Result<()> {
+    fs::create_dir_all("/run/openclaw-rs")
+}
+
+fn startup_doctor_marker_path() -> PathBuf {
+    Path::new(&env::var("OPENCLAW_CONFIG_DIR").unwrap_or_else(|_| "/config/.openclaw".to_string()))
+        .join(".startup-doctor-complete")
+}
+
+fn should_run_startup_doctor(force_on_start: bool) -> bool {
+    force_on_start || !startup_doctor_marker_path().exists()
+}
+
+fn pid_file_path(name: &str) -> PathBuf {
+    Path::new("/run/openclaw-rs").join(format!("{name}.pid"))
+}
+
+fn write_pid_file(name: &str, pid: u32) {
+    if let Err(err) = ensure_runtime_dir() {
+        eprintln!("addon-supervisor: failed to create runtime dir: {err}");
+        return;
+    }
+
+    let path = pid_file_path(name);
+    if let Err(err) = fs::write(&path, pid.to_string()) {
+        eprintln!(
+            "addon-supervisor: failed to write pid file for {} at {}: {}",
+            name,
+            path.display(),
+            err
+        );
+    }
+}
+
+fn remove_pid_file(name: &str) {
+    let path = pid_file_path(name);
+    if let Err(err) = fs::remove_file(&path) {
+        if err.kind() != std::io::ErrorKind::NotFound {
+            eprintln!(
+                "addon-supervisor: failed to remove pid file for {} at {}: {}",
+                name,
+                path.display(),
+                err
+            );
+        }
+    }
+}
+
+fn run_services(
+    gateway_bin: String,
+    ui_bin: String,
+    ingress_bin: String,
+    ttyd_bin: String,
+    run_doctor_on_start: bool,
+) -> ExitCode {
+    let rt = tokio::runtime::Runtime::new().expect("tokio runtime");
+    rt.block_on(async move {
+        if let Err(err) = ensure_runtime_dir() {
+            eprintln!("addon-supervisor: failed to initialize runtime dir: {err}");
+            return ExitCode::from(1);
+        }
+        for name in [
+            "openclaw-gateway",
+            "openclaw-node",
+            "haos-ui",
+            "ingressd",
+            "ttyd",
+        ] {
+            remove_pid_file(name);
+        }
+
+        let (shutdown_tx, shutdown_rx) = watch::channel(false);
+        let mut handles = Vec::new();
+
+        let gateway_spec = build_gateway_spec(gateway_bin.clone());
+
+        handles.push(tokio::spawn(run_managed_process(
+            gateway_spec,
+            shutdown_rx.clone(),
+        )));
+        handles.push(tokio::spawn(run_managed_process(
+            ProcessSpec::new("haos-ui", ui_bin, vec![]),
+            shutdown_rx.clone(),
+        )));
+
+        tokio::time::sleep(Duration::from_millis(800)).await;
+
+        handles.push(tokio::spawn(run_managed_process(
+            ProcessSpec::new("ingressd", ingress_bin, vec![]),
+            shutdown_rx,
+        )));
+
+        if env::var("OPENCLAW_TERMINAL_ENABLED")
+            .map(|value| value == "1")
+            .unwrap_or(true)
+        {
+            handles.push(tokio::spawn(run_managed_process(
+                ProcessSpec::new(
+                    "ttyd",
+                    ttyd_bin,
+                    vec![
+                        "-i".to_string(),
+                        "127.0.0.1".to_string(),
+                        "-p".to_string(),
+                        env::var("TTYD_PORT").unwrap_or_else(|_| "7681".to_string()),
+                        "-W".to_string(),
+                        "-t".to_string(),
+                        "titleFixed=OpenClaw Maintenance Shell".to_string(),
+                        "-t".to_string(),
+                        "fontSize=14".to_string(),
+                        "-t".to_string(),
+                        "rendererType=webgl".to_string(),
+                        "bash".to_string(),
+                    ],
+                ),
+                shutdown_tx.subscribe(),
+            )));
+        }
+
+        if should_run_startup_doctor(run_doctor_on_start) {
+            handles.push(tokio::spawn(run_startup_doctor(
+                gateway_bin.clone(),
+                startup_doctor_marker_path(),
+                shutdown_tx.subscribe(),
+            )));
+        }
+
+        println!("addon-supervisor: services started; waiting for Ctrl+C");
+        let _ = signal::ctrl_c().await;
+        let _ = shutdown_tx.send(true);
+
+        for handle in handles {
+            let _ = handle.await;
+        }
+        ExitCode::SUCCESS
+    })
+}
+
+fn build_gateway_spec(gateway_bin: String) -> ProcessSpec {
+    ProcessSpec::new(
+        "openclaw-gateway",
+        gateway_bin,
+        vec!["gateway".to_string(), "run".to_string()],
+    )
+}
+
+#[derive(Clone)]
+struct ProcessSpec {
+    name: String,
+    program: String,
+    args: Vec<String>,
+}
+
+impl ProcessSpec {
+    fn new(name: &str, program: String, args: Vec<String>) -> Self {
+        Self {
+            name: name.to_string(),
+            program,
+            args,
+        }
+    }
+}
+
+async fn run_managed_process(spec: ProcessSpec, mut shutdown_rx: watch::Receiver<bool>) {
+    // Exponential backoff: 2s → 4s → 8s → 16s → 32s → 64s (max).
+    // Resets to 2s after the process has been alive for at least this many
+    // seconds, meaning a successful long-running run clears the failure count.
+    const STABLE_SECS: u64 = 30;
+    const BACKOFF_BASE: u64 = 2;
+    const BACKOFF_MAX: u64 = 64;
+    let mut consecutive_failures: u32 = 0;
+
+    loop {
+        if *shutdown_rx.borrow() {
+            break;
+        }
+
+        let mut command = Command::new(&spec.program);
+        apply_child_env(&mut command);
+        command.args(&spec.args);
+
+        let Ok(mut child) = command.spawn() else {
+            eprintln!("addon-supervisor: failed to start {}", spec.name);
+            sleep(Duration::from_secs(BACKOFF_BASE)).await;
+            continue;
+        };
+
+        let pid = child.id().unwrap_or_default();
+        println!("addon-supervisor: started {} (pid {})", spec.name, pid);
+        if pid != 0 {
+            write_pid_file(&spec.name, pid);
+        }
+
+        let started_at = std::time::Instant::now();
+
+        tokio::select! {
+            _ = shutdown_rx.changed() => {
+                let _ = child.kill().await;
+                let _ = child.wait().await;
+                remove_pid_file(&spec.name);
+                println!("addon-supervisor: stopped {}", spec.name);
+                break;
+            }
+            status = child.wait() => {
+                remove_pid_file(&spec.name);
+                let lived_secs = started_at.elapsed().as_secs();
+                match status {
+                    Ok(exit) => {
+                        eprintln!("addon-supervisor: {} exited with {:?} (lived {}s)", spec.name, exit.code(), lived_secs);
+                    }
+                    Err(err) => {
+                        eprintln!("addon-supervisor: {} wait failed: {} (lived {}s)", spec.name, err, lived_secs);
+                    }
+                }
+                if *shutdown_rx.borrow() {
+                    break;
+                }
+                if lived_secs >= STABLE_SECS {
+                    consecutive_failures = 0;
+                } else {
+                    consecutive_failures = consecutive_failures.saturating_add(1);
+                }
+                let delay = (BACKOFF_BASE << consecutive_failures.min(5)).min(BACKOFF_MAX);
+                if consecutive_failures > 1 {
+                    eprintln!(
+                        "addon-supervisor: {} backing off {}s (failure #{})",
+                        spec.name, delay, consecutive_failures
+                    );
+                }
+                sleep(Duration::from_secs(delay)).await;
+            }
+        }
+    }
+}
+
+async fn run_startup_doctor(
+    gateway_bin: String,
+    marker_path: PathBuf,
+    mut shutdown_rx: watch::Receiver<bool>,
+) {
+    tokio::select! {
+        _ = shutdown_rx.changed() => return,
+        _ = sleep(Duration::from_secs(15)) => {}
+    }
+
+    println!("--- openclaw doctor --fix ---");
+    let mut command = Command::new(&gateway_bin);
+    apply_child_env(&mut command);
+    command.stdout(Stdio::piped()).stderr(Stdio::piped());
+    let mut child = match command.args(startup_doctor_args()).spawn() {
+        Ok(child) => child,
+        Err(err) => {
+            eprintln!("addon-supervisor: failed to start doctor: {err}");
+            println!("--- end doctor ---");
+            return;
+        }
+    };
+    let stdout_task = child
+        .stdout
+        .take()
+        .map(|stdout| tokio::spawn(stream_startup_doctor_output(stdout, false)));
+    let stderr_task = child
+        .stderr
+        .take()
+        .map(|stderr| tokio::spawn(stream_startup_doctor_output(stderr, true)));
+
+    tokio::select! {
+        _ = shutdown_rx.changed() => {
+            let _ = child.kill().await;
+            let _ = child.wait().await;
+        }
+        result = child.wait() => {
+            match result {
+                Ok(status) if status.success() => {
+                    if let Err(err) = fs::write(&marker_path, "ok\n") {
+                        eprintln!(
+                            "addon-supervisor: failed to persist startup doctor marker at {}: {}",
+                            marker_path.display(),
+                            err
+                        );
+                    }
+                }
+                Ok(status) => {
+                    eprintln!("addon-supervisor: startup doctor exited with status {status}");
+                }
+                Err(err) => {
+                    eprintln!("addon-supervisor: doctor wait failed: {err}");
+                }
+            }
+        }
+    }
+    if let Some(task) = stdout_task {
+        let _ = task.await;
+    }
+    if let Some(task) = stderr_task {
+        let _ = task.await;
+    }
+    println!("--- end doctor ---");
+}
+
+fn startup_doctor_args() -> [&'static str; 2] {
+    ["doctor", "--fix"]
+}
+
+async fn stream_startup_doctor_output<R>(reader: R, is_stderr: bool)
+where
+    R: AsyncRead + Unpin,
+{
+    let mut lines = BufReader::new(reader).lines();
+    let mut suppress_health_details = false;
+    let mut suppressed_section: Option<String> = None;
+    loop {
+        match lines.next_line().await {
+            Ok(Some(line)) => {
+                if should_suppress_startup_doctor_line(
+                    &line,
+                    &mut suppress_health_details,
+                    &mut suppressed_section,
+                ) {
+                    continue;
+                }
+                if is_stderr {
+                    eprintln!("{line}");
+                } else {
+                    println!("{line}");
+                }
+            }
+            Ok(None) => break,
+            Err(err) => {
+                eprintln!("addon-supervisor: failed to read startup doctor output: {err}");
+                break;
+            }
+        }
+    }
+}
+
+fn should_suppress_startup_doctor_line(
+    line: &str,
+    suppress_health_details: &mut bool,
+    suppressed_section: &mut Option<String>,
+) -> bool {
+    if suppressed_section.is_some() {
+        if let Some(next_section) = startup_doctor_section_title(line) {
+            if should_suppress_startup_doctor_section(&next_section) {
+                *suppressed_section = Some(next_section);
+                return true;
+            }
+            *suppressed_section = None;
+        } else if should_keep_suppressing_startup_doctor_section(line) {
+            return true;
+        } else {
+            *suppressed_section = None;
+        }
+    }
+
+    if let Some(section_title) = startup_doctor_section_title(line)
+        && should_suppress_startup_doctor_section(&section_title)
+    {
+        *suppressed_section = Some(section_title);
+        return true;
+    }
+
+    let trimmed = normalize_startup_doctor_line(line);
+
+    if *suppress_health_details {
+        if is_startup_doctor_health_detail_line(trimmed) {
+            return true;
+        }
+        *suppress_health_details = false;
+    }
+
+    if trimmed.starts_with("Health check failed: Error: gateway timeout after ") {
+        *suppress_health_details = true;
+        return true;
+    }
+
+    matches!(
+        trimmed,
+        "Memory search is enabled, but no embedding provider is ready."
+            | "Semantic recall needs at least one embedding provider."
+            | "systemd user services are unavailable; install/enable systemd or run the gateway under your supervisor."
+            | "If you're in a container, run the gateway in the foreground instead of `openclaw gateway`."
+            | "Gateway already running locally. Stop it (openclaw gateway stop) or use a different port."
+    ) || (trimmed.starts_with("Port ") && trimmed.ends_with(" is already in use."))
+}
+
+fn is_startup_doctor_health_detail_line(line: &str) -> bool {
+    line.starts_with("Gateway target:")
+        || line.starts_with("Source:")
+        || line.starts_with("Config:")
+        || line.starts_with("Bind:")
+}
+
+fn normalize_startup_doctor_line(line: &str) -> &str {
+    let trimmed = line.trim();
+    let trimmed = trimmed.trim_start_matches(|c: char| {
+        matches!(c, '│' | '┌' | '└' | '├' | '╭' | '╮' | '╯' | '╰' | '─' | ' ')
+    });
+    trimmed.strip_prefix("- ").unwrap_or(trimmed)
+}
+
+fn upsert_home_assistant_mcp_server(
+    args: &HaosEntryArgs,
+    homeassistant_token: &str,
+) -> std::io::Result<()> {
+    let contents = fs::read_to_string(&args.mcporter_config)
+        .unwrap_or_else(|_| "{\"mcpServers\":{}}\n".to_string());
+    let mut config = serde_json::from_str::<serde_json::Value>(&contents)
+        .unwrap_or_else(|_| serde_json::json!({ "mcpServers": {} }));
+
+    if !config.is_object() {
+        config = serde_json::json!({ "mcpServers": {} });
+    }
+
+    let root = config.as_object_mut().expect("mcporter config root object");
+    let servers = root
+        .entry("mcpServers".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !servers.is_object() {
+        *servers = serde_json::json!({});
+    }
+
+    let server = serde_json::json!({
+        "description": "Home Assistant Supervisor MCP",
+        "baseUrl": "http://supervisor/core/api/mcp",
+        "headers": {
+            "Authorization": format!("Bearer {homeassistant_token}")
+        }
+    });
+
+    servers
+        .as_object_mut()
+        .expect("mcpServers object")
+        .insert("HA".to_string(), server);
+
+    fs::write(
+        &args.mcporter_config,
+        format!(
+            "{}\n",
+            serde_json::to_string_pretty(&config)
+                .unwrap_or_else(|_| "{\"mcpServers\":{}}".to_string())
+        ),
+    )
+}
+
+fn startup_doctor_section_title(line: &str) -> Option<String> {
+    let trimmed = line.trim_start();
+    if !trimmed.starts_with('◇') {
+        return None;
+    }
+    let body = trimmed.trim_start_matches('◇').trim_start();
+    let title = body.split('─').next().unwrap_or(body).trim();
+    if title.is_empty() {
+        None
+    } else {
+        Some(title.to_string())
+    }
+}
+
+fn should_suppress_startup_doctor_section(title: &str) -> bool {
+    matches!(title, "Memory search" | "Gateway port" | "Gateway")
+}
+
+fn should_keep_suppressing_startup_doctor_section(line: &str) -> bool {
+    let trimmed = line.trim_start();
+    if trimmed.starts_with('◇') {
+        return false;
+    }
+    if trimmed.starts_with("└  Doctor complete.") {
+        return false;
+    }
+    true
+}
+
+fn apply_child_env(command: &mut Command) {
+    for key in [
+        "HOME",
+        "TZ",
+        "OPENCLAW_CONFIG_DIR",
+        "OPENCLAW_CONFIG_PATH",
+        "OPENCLAW_STATE_DIR",
+        "OPENCLAW_WORKSPACE_DIR",
+        "XDG_CONFIG_HOME",
+        "OPENCLAW_NO_RESPAWN",
+        "NODE_COMPILE_CACHE",
+        "MCPORTER_HOME_DIR",
+        "MCPORTER_CONFIG",
+        "PUBLIC_SHARE_DIR",
+        "UI_PORT",
+        "INGRESS_PORT",
+        "TTYD_PORT",
+        "GW_PUBLIC_URL",
+        "GW_PUBLIC_PORT",
+        "HTTPS_PORT",
+        "OPENCLAW_TERMINAL_ENABLED",
+        "OPENCLAW_DISABLE_BONJOUR",
+        "OPENCLAW_GATEWAY_TOKEN",
+        "OPENCLAW_MODEL_PRIMARY",
+        "GATEWAY_INTERNAL_PORT",
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "ADDON_VERSION",
+        "OPENCLAW_VERSION",
+    ] {
+        if let Ok(value) = env::var(key) {
+            command.env(key, value);
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::collections::HashSet;
+
+    fn sample_settings() -> RuntimeSettings {
+        RuntimeSettings {
+            timezone: "Asia/Shanghai".to_string(),
+            disable_bonjour: false,
+            enable_terminal: true,
+            terminal_port: 7681,
+            gateway_mode: "local".to_string(),
+            gateway_remote_url: String::new(),
+            gateway_bind_mode: "loopback".to_string(),
+            gateway_port: 18789,
+            gateway_public_url: String::new(),
+            gateway_auth_mode: "token".to_string(),
+            homeassistant_token: "token".to_string(),
+            http_proxy: String::new(),
+            gateway_trusted_proxies: Vec::new(),
+            gateway_additional_allowed_origins: Vec::new(),
+            enable_openai_api: true,
+            auto_configure_mcp: true,
+            run_doctor_on_start: false,
+        }
+    }
+
+    #[test]
+    fn allowed_origins_include_expected_lan_and_public_hosts() {
+        let mut settings = sample_settings();
+        settings.gateway_public_url = "https://gateway.example.com/ui?x=1".to_string();
+
+        let origins = build_control_ui_allowed_origins(&settings);
+
+        assert!(origins.contains(&"https://gateway.example.com".to_string()));
+        assert!(origins.contains(&"https://homeassistant.local:18789".to_string()));
+        assert!(origins.contains(&"https://homeassistant:18789".to_string()));
+
+        let unique_count = origins.iter().collect::<HashSet<_>>().len();
+        assert_eq!(origins.len(), unique_count);
+
+        let mut sorted = origins.clone();
+        sorted.sort();
+        assert_eq!(origins, sorted);
+    }
+
+    #[test]
+    fn allowed_origins_ignore_invalid_public_url_without_lan_mode() {
+        let mut settings = sample_settings();
+        settings.gateway_public_url = "not-a-url".to_string();
+
+        let origins = build_control_ui_allowed_origins(&settings);
+
+        assert!(origins.contains(&"https://homeassistant.local:18789".to_string()));
+    }
+
+    #[test]
+    fn allowed_origins_include_user_configured_entries() {
+        let mut settings = sample_settings();
+        settings.gateway_additional_allowed_origins = vec![
+            "https://ha.example.com".to_string(),
+            "https://proxy.example.com".to_string(),
+        ];
+
+        let origins = build_control_ui_allowed_origins(&settings);
+
+        assert!(origins.contains(&"https://ha.example.com".to_string()));
+        assert!(origins.contains(&"https://proxy.example.com".to_string()));
+    }
+
+    #[test]
+    fn startup_doctor_runs_in_fix_mode() {
+        assert_eq!(startup_doctor_args(), ["doctor", "--fix"]);
+    }
+
+    #[test]
+    fn startup_doctor_suppresses_health_timeout_block() {
+        let mut suppress_health_details = false;
+        let mut suppressed_section = None;
+
+        assert!(should_suppress_startup_doctor_line(
+            "Health check failed: Error: gateway timeout after 10000ms",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(suppress_health_details);
+        assert!(should_suppress_startup_doctor_line(
+            "Gateway target: ws://127.0.0.1:18789",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(should_suppress_startup_doctor_line(
+            "Source: local loopback",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(should_suppress_startup_doctor_line(
+            "Config: /config/.openclaw/openclaw.json",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(should_suppress_startup_doctor_line(
+            "Bind: loopback",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(!should_suppress_startup_doctor_line(
+            "Doctor complete.",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(!suppress_health_details);
+    }
+
+    #[test]
+    fn startup_doctor_suppresses_other_known_noise_lines() {
+        let mut suppress_health_details = false;
+        let mut suppressed_section = None;
+
+        for line in [
+            "Memory search is enabled, but no embedding provider is ready.",
+            "Semantic recall needs at least one embedding provider.",
+            "systemd user services are unavailable; install/enable systemd or run the gateway under your supervisor.",
+            "If you're in a container, run the gateway in the foreground instead of `openclaw gateway`.",
+            "Port 18789 is already in use.",
+            "Gateway already running locally. Stop it (openclaw gateway stop) or use a different port.",
+        ] {
+            assert!(should_suppress_startup_doctor_line(
+                line,
+                &mut suppress_health_details,
+                &mut suppressed_section
+            ));
+        }
+    }
+
+    #[test]
+    fn startup_doctor_suppresses_boxed_noise_sections() {
+        let mut suppress_health_details = false;
+        let mut suppressed_section = None;
+
+        assert!(should_suppress_startup_doctor_line(
+            "◇  Gateway port ──────────────────────────────────────────────────────────╮",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(should_suppress_startup_doctor_line(
+            "│  Port 18789 is already in use.",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(should_suppress_startup_doctor_line(
+            "├─────────────────────────────────────────────────────────────────────────╯",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+        assert!(!should_suppress_startup_doctor_line(
+            "◇  Security ─────────────────────────────────╮",
+            &mut suppress_health_details,
+            &mut suppressed_section
+        ));
+    }
+
+    #[test]
+    fn ensure_trusted_local_plugins_merges_discovered_extensions() {
+        let unique = format!("openclaw-plugin-allow-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let plugin_dir = root
+            .join(".openclaw")
+            .join("extensions")
+            .join("openclaw-weixin");
+        fs::create_dir_all(&plugin_dir).expect("create plugin dir");
+        fs::write(plugin_dir.join("index.ts"), "export default {};").expect("write plugin entry");
+
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        let mut config = serde_json::json!({
+            "plugins": {
+                "allow": ["custom-existing"]
+            }
+        });
+        ensure_trusted_local_plugins(&mut config, &args);
+
+        let allow = config["plugins"]["allow"]
+            .as_array()
+            .expect("allow array")
+            .iter()
+            .filter_map(|value| value.as_str())
+            .collect::<Vec<_>>();
+
+        assert!(allow.contains(&"custom-existing"));
+        assert!(allow.contains(&"openclaw-weixin"));
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn upsert_home_assistant_mcp_server_writes_official_shape() {
+        let unique = format!("openclaw-mcporter-upsert-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        ensure_mcporter_config(&args).expect("seed mcporter config");
+        upsert_home_assistant_mcp_server(&args, "abc123").expect("write ha server");
+
+        let contents = fs::read_to_string(&args.mcporter_config).expect("mcporter config");
+        let config: serde_json::Value = serde_json::from_str(&contents).expect("valid json");
+        let server = &config["mcpServers"]["HA"];
+        assert_eq!(server["baseUrl"], "http://supervisor/core/api/mcp");
+        assert_eq!(server["headers"]["Authorization"], "Bearer abc123");
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn parse_ipv4_addrs_extracts_all_global_addresses() {
+        let output = "\
+2: end0    inet 192.168.1.122/24 brd 192.168.1.255 scope global dynamic end0\n\
+3: wlan0   inet 10.0.0.8/24 brd 10.0.0.255 scope global wlan0\n";
+
+        let ips = parse_ipv4_addrs_from_ip_addr_output(output);
+
+        assert_eq!(
+            ips,
+            vec!["192.168.1.122".to_string(), "10.0.0.8".to_string()]
+        );
+    }
+
+    #[test]
+    fn certificate_renew_window_is_thirty_days() {
+        assert_eq!(certificate_renew_before_seconds(), 2_592_000);
+    }
+
+    #[test]
+    fn ensure_agent_defaults_writes_workspace_and_user_timezone() {
+        let unique = format!("openclaw-agent-defaults-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let settings = sample_settings();
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        let mut config = serde_json::json!({});
+        ensure_agent_defaults(&mut config, &args, &settings);
+
+        assert_eq!(
+            config["agents"]["defaults"]["workspace"],
+            args.openclaw_workspace_dir.display().to_string()
+        );
+        assert_eq!(
+            config["agents"]["defaults"]["userTimezone"],
+            settings.timezone
+        );
+    }
+
+    #[test]
+    fn ensure_gateway_defaults_writes_official_nested_shape() {
+        let unique = format!("openclaw-gateway-defaults-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        let mut config = serde_json::json!({});
+        let settings = sample_settings();
+        ensure_gateway_defaults(&mut config, &args, &settings);
+
+        assert_eq!(config["gateway"]["mode"], "local");
+        assert_eq!(config["gateway"]["bind"], "loopback");
+        assert_eq!(config["gateway"]["port"], 18789);
+        assert_eq!(config["gateway"]["auth"]["mode"], "token");
+        assert!(config["gateway"]["auth"]["token"].as_str().is_some());
+        assert_eq!(
+            config["gateway"]["trustedProxies"],
+            serde_json::json!(["127.0.0.1/32", "::1/128"])
+        );
+        assert_eq!(
+            config["gateway"]["http"]["endpoints"]["chatCompletions"]["enabled"],
+            true
+        );
+    }
+
+    #[test]
+    fn ensure_mcporter_config_creates_seed_file() {
+        let unique = format!("openclaw-test-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        ensure_mcporter_config(&args).expect("seed mcporter config");
+
+        let contents = fs::read_to_string(&args.mcporter_config).expect("mcporter config");
+        assert_eq!(contents, "{\"mcpServers\":{}}\n");
+
+        let _ = fs::remove_dir_all(root);
+    }
+}

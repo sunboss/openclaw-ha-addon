@@ -1,0 +1,58 @@
+name: OpenClaw HA Add-on
+version: "2026.04.16.2"
+slug: openclaw_ha_addon
+description: Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints.
+url: https://github.com/sunboss/openclaw-ha-addon
+image: ghcr.io/sunboss/openclaw-ha-addon
+arch:
+  - amd64
+  - aarch64
+startup: services
+boot: manual
+init: false
+host_network: true
+ingress: true
+ingress_port: 48099
+panel_title: OpenClaw HA Add-on
+panel_icon: mdi:robot-industrial
+
+map:
+  - addon_config:rw
+
+options:
+  timezone: "Asia/Shanghai"
+  disable_bonjour: true
+  enable_terminal: true
+  terminal_port: 7681
+  gateway_mode: "local"
+  gateway_remote_url: ""
+  gateway_bind_mode: "loopback"
+  gateway_port: 18789
+  gateway_public_url: ""
+  gateway_auth_mode: "token"
+  homeassistant_token: ""
+  http_proxy: ""
+  gateway_trusted_proxies: ""
+  gateway_additional_allowed_origins: ""
+  enable_openai_api: true
+  auto_configure_mcp: true
+  run_doctor_on_start: false
+
+schema:
+  timezone: str
+  disable_bonjour: bool?
+  enable_terminal: bool?
+  terminal_port: port?
+  gateway_mode: str?
+  gateway_remote_url: str?
+  gateway_bind_mode: str?
+  gateway_port: port?
+  gateway_public_url: str?
+  gateway_auth_mode: str?
+  homeassistant_token: password?
+  http_proxy: str?
+  gateway_trusted_proxies: str?
+  gateway_additional_allowed_origins: str?
+  enable_openai_api: bool?
+  auto_configure_mcp: bool?
+  run_doctor_on_start: bool?

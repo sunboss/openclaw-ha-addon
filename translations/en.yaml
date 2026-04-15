@@ -1,0 +1,52 @@
+configuration:
+  timezone:
+    name: Timezone
+    description: Timezone used inside the add-on container and written to the OpenClaw agent defaults.
+  disable_bonjour:
+    name: Disable Bonjour
+    description: Turn off LAN Bonjour advertisement noise unless you explicitly need local discovery.
+  enable_terminal:
+    name: Enable Terminal
+    description: Start the maintenance shell service and keep the command-line entry visible on the main page.
+  terminal_port:
+    name: Terminal Port
+    description: Local ttyd port used by the maintenance shell proxy.
+  gateway_mode:
+    name: Gateway Mode
+    description: Official gateway mode written into the runtime configuration. Keep `local` unless you intentionally run a remote gateway setup.
+  gateway_remote_url:
+    name: Gateway Remote URL
+    description: Official remote gateway URL used only when the gateway mode is set to `remote`.
+  gateway_bind_mode:
+    name: Gateway Bind Mode
+    description: Official gateway bind mode written into the runtime configuration. `loopback` is the recommended add-on default.
+  gateway_port:
+    name: Gateway HTTPS Port
+    description: External HTTPS port exposed by the add-on for the native OpenClaw Web UI.
+  gateway_public_url:
+    name: Gateway Public URL
+    description: Optional fixed public URL used by the "Open Gateway" button instead of auto-detecting the current host.
+  gateway_auth_mode:
+    name: Gateway Auth Mode
+    description: Official gateway authentication mode written into the runtime configuration. `token` is the recommended add-on default.
+  homeassistant_token:
+    name: Home Assistant Token
+    description: Long-lived Home Assistant token used when auto-configuring the Home Assistant MCP endpoint.
+  http_proxy:
+    name: HTTP Proxy
+    description: Optional HTTP or HTTPS proxy URL exported to the runtime environment.
+  gateway_trusted_proxies:
+    name: Trusted Proxies
+    description: Additional trusted proxy CIDRs or IPs, separated by commas, appended to the official loopback allowlist.
+  gateway_additional_allowed_origins:
+    name: Additional Allowed Origins
+    description: Extra Control UI origins, separated by commas, added on top of the add-on defaults.
+  enable_openai_api:
+    name: Enable Chat Completions API
+    description: Enable the OpenAI-compatible chat completions HTTP endpoint in the gateway.
+  auto_configure_mcp:
+    name: Auto Configure Home Assistant MCP
+    description: Register the Home Assistant MCP endpoint at startup when a Home Assistant token is present.
+  run_doctor_on_start:
+    name: Run Doctor On Start
+    description: Run `openclaw doctor --fix` after startup for diagnostics and first-boot repair.
