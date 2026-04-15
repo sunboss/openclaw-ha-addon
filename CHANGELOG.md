@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.16.3
+
+- Fix the Gateway button redirect when opened through Home Assistant Ingress by preserving upstream `307` redirects instead of following them inside `ingressd`
+- Stop running `openclaw doctor --fix` automatically on first boot unless `run_doctor_on_start` is explicitly enabled, reducing startup delay
+
 ## 2026.04.16.2
 
 - Keep the main page on only two formal entry buttons:

@@ -83,6 +83,7 @@ async fn main() {
     let state = AppState {
         client: Client::builder()
             .http2_adaptive_window(true)
+            .redirect(reqwest::redirect::Policy::none())
             .timeout(std::time::Duration::from_secs(10))
             .build()
             .expect("build reqwest client"),
@@ -129,6 +130,7 @@ async fn main() {
 
 fn build_ingress_router(state: AppState) -> Router {
     Router::new()
+        .route("/open-gateway", get(open_gateway))
         .route("/gateway", get(gateway_redirect))
         .route("/gateway/", any(proxy_gateway_ingress))
         .route("/gateway/{*path}", any(proxy_gateway_ingress))
@@ -161,6 +163,10 @@ async fn shell_redirect() -> impl IntoResponse {
 
 async fn gateway_redirect() -> impl IntoResponse {
     Redirect::temporary("/gateway/")
+}
+
+async fn open_gateway(headers: HeaderMap) -> impl IntoResponse {
+    Redirect::temporary(&gateway_redirect_target(&headers))
 }
 
 async fn proxy_health(State(_state): State<AppState>, request: Request) -> impl IntoResponse {
@@ -557,6 +563,64 @@ fn rewrite_proxy_path(path: &str, strip_prefix: Option<&str>) -> String {
     path.to_string()
 }
 
+fn gateway_redirect_target(headers: &HeaderMap) -> String {
+    if let Ok(url) = env::var("GW_PUBLIC_URL")
+        && !url.trim().is_empty()
+    {
+        return with_gateway_token(url.trim(), env::var("OPENCLAW_GATEWAY_TOKEN").ok().as_deref());
+    }
+
+    let host = host_name_from_headers(headers).unwrap_or_else(|| "127.0.0.1".to_string());
+    let port = env::var("GW_PUBLIC_PORT")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "18789".to_string());
+    with_gateway_token(&format!("https://{host}:{port}/"), env::var("OPENCLAW_GATEWAY_TOKEN").ok().as_deref())
+}
+
+fn with_gateway_token(url: &str, token: Option<&str>) -> String {
+    match token.map(str::trim) {
+        Some(token) if !token.is_empty() => format!("{}#token={token}", url.trim_end_matches('#')),
+        _ => url.to_string(),
+    }
+}
+
+fn host_name_from_headers(headers: &HeaderMap) -> Option<String> {
+    let forwarded_host = headers
+        .get("x-forwarded-host")
+        .and_then(|value| value.to_str().ok())
+        .and_then(|value| value.split(',').next().map(str::trim))
+        .filter(|value| !value.is_empty())
+        .map(strip_port)
+        .filter(|value| !value.is_empty());
+    if forwarded_host.is_some() {
+        return forwarded_host;
+    }
+
+    headers
+        .get("host")
+        .and_then(|value| value.to_str().ok())
+        .map(strip_port)
+        .filter(|value| !value.is_empty())
+}
+
+fn strip_port(value: &str) -> String {
+    if let Some(stripped) = value.strip_prefix('[')
+        && let Some(end) = stripped.find(']')
+    {
+        return stripped[..end].to_string();
+    }
+
+    if let Some((host, port)) = value.rsplit_once(':')
+        && !host.is_empty()
+        && port.chars().all(|c| c.is_ascii_digit())
+    {
+        return host.to_string();
+    }
+
+    value.to_string()
+}
+
 fn copy_request_headers(
     mut builder: reqwest::RequestBuilder,
     headers: &HeaderMap,
@@ -951,6 +1015,23 @@ mod tests {
         assert_eq!(
             forwarded.to_str().expect("forwarded str"),
             "for=192.168.1.142;proto=https;host=192.168.1.122:18789"
+        );
+    }
+
+    #[test]
+    fn gateway_redirect_target_uses_forwarded_host_and_token() {
+        unsafe {
+            env::set_var("GW_PUBLIC_URL", "");
+            env::set_var("GW_PUBLIC_PORT", "18789");
+            env::set_var("OPENCLAW_GATEWAY_TOKEN", "tok_test_12345678");
+        }
+
+        let mut headers = HeaderMap::new();
+        headers.insert("x-forwarded-host", HeaderValue::from_static("192.168.1.66:8123"));
+
+        assert_eq!(
+            gateway_redirect_target(&headers),
+            "https://192.168.1.66:18789/#token=tok_test_12345678"
         );
     }
 }

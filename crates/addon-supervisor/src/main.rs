@@ -976,7 +976,7 @@ fn startup_doctor_marker_path() -> PathBuf {
 }
 
 fn should_run_startup_doctor(force_on_start: bool) -> bool {
-    force_on_start || !startup_doctor_marker_path().exists()
+    force_on_start
 }
 
 fn pid_file_path(name: &str) -> PathBuf {
@@ -1551,6 +1551,12 @@ mod tests {
     #[test]
     fn startup_doctor_runs_in_fix_mode() {
         assert_eq!(startup_doctor_args(), ["doctor", "--fix"]);
+    }
+
+    #[test]
+    fn startup_doctor_is_disabled_by_default() {
+        assert!(!should_run_startup_doctor(false));
+        assert!(should_run_startup_doctor(true));
     }
 
     #[test]
