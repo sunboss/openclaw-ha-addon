@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.16.5
+
+- Rewrite `README`, `DOCS`, and `INSTALL` into clean bilingual English and Chinese documentation
+- Replace relative logo references with stable absolute raw GitHub image URLs so the Home Assistant information page can render the full OpenClaw logo reliably
+
 ## 2026.04.16.4
 
 - Restore startup doctor behavior to run on first boot automatically, then defer to the `run_doctor_on_start` switch on later boots

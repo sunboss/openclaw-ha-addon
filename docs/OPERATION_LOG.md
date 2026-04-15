@@ -2,6 +2,8 @@
 
 ## 2026-04-16
 
+- Rewrote `README.md`, `DOCS.md`, and `INSTALL.md` into professional bilingual English and Chinese documentation
+- Replaced relative logo links with absolute raw GitHub image URLs so the Home Assistant information page can render the full OpenClaw logo reliably
 - Restored startup doctor behavior so first boot always runs `openclaw doctor --fix`, while later boots only run it when `run_doctor_on_start` is enabled
 - Continued the new-project reset under the public name `OpenClaw HA Add-on`
 - Kept the main page focused on two production entry buttons only:
