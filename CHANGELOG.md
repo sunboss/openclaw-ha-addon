@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.4
+
+- Restore startup doctor behavior to run on first boot automatically, then defer to the `run_doctor_on_start` switch on later boots
+
 ## 2026.04.16.3
 
 - Fix the Gateway button redirect when opened through Home Assistant Ingress by preserving upstream `307` redirects instead of following them inside `ingressd`
