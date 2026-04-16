@@ -32,6 +32,13 @@ function countReplace(source, pattern, replacement) {
   return { updated, count };
 }
 
+function ensureSafeTrimHelper(source) {
+  if (source.includes("const __openclawSafeTrim =")) {
+    return source;
+  }
+  return `const __openclawSafeTrim = (value) => typeof value === "string" ? value.trim() : \"\";\n${source}`;
+}
+
 function patchFile(filePath, tempIds) {
   const source = fs.readFileSync(filePath, "utf8");
   let updated = source;
@@ -61,33 +68,27 @@ function patchFile(filePath, tempIds) {
   );
   updated = entryRestore.updated;
 
-  const awaitedPromptAssignment =
-    /([ \t]*)const ([A-Za-z_$][\w$]*) = \((await[\s\S]*?prompter\.(?:text|password)\([\s\S]*?)\)\.trim\(\);/g;
-  const assignmentResult = countReplace(
+  const awaitedPromptInline =
+    /\(\s*(await\s+(?:(?:[A-Za-z_$][\w$]*\.)*prompter\.(?:text|password)\([\s\S]*?\)))\s*\)\.trim\(\)/g;
+  const inlineResult = countReplace(
     updated,
-    awaitedPromptAssignment,
-    (_, indent, name, expression) => {
-      const tempName = `__promptValue${tempIds.value++}`;
-      return `${indent}const ${tempName} = ${expression};\n${indent}const ${name} = typeof ${tempName} === "string" ? ${tempName}.trim() : "";`;
-    }
+    awaitedPromptInline,
+    (_, expression) => `__openclawSafeTrim(${expression})`
   );
-  updated = assignmentResult.updated;
-  if (assignmentResult.count > 0)
-    changes.push(`awaited prompt assignment x${assignmentResult.count}`);
+  updated = inlineResult.updated;
+  if (inlineResult.count > 0) changes.push(`awaited prompt inline trim x${inlineResult.count}`);
 
-  const awaitedPromptReturn =
-    /([ \t]*)return \((await[\s\S]*?prompter\.(?:text|password)\([\s\S]*?)\)\.trim\(\);/g;
-  const returnResult = countReplace(
+  const rawValueResult = countReplace(
     updated,
-    awaitedPromptReturn,
-    (_, indent, expression) => {
-      const tempName = `__promptValue${tempIds.value++}`;
-      return `${indent}const ${tempName} = ${expression};\n${indent}return typeof ${tempName} === "string" ? ${tempName}.trim() : "";`;
-    }
+    /\bconst trimmedValue = rawValue\.trim\(\);/g,
+    'const trimmedValue = typeof rawValue === "string" ? rawValue.trim() : "";'
   );
-  updated = returnResult.updated;
-  if (returnResult.count > 0)
-    changes.push(`awaited prompt return x${returnResult.count}`);
+  updated = rawValueResult.updated;
+  if (rawValueResult.count > 0) changes.push(`rawValue.trim x${rawValueResult.count}`);
+
+  if (changes.length > 0) {
+    updated = ensureSafeTrimHelper(updated);
+  }
 
   if (updated !== source) {
     fs.writeFileSync(filePath, updated, "utf8");

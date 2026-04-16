@@ -2,6 +2,9 @@
 
 ## 2026-04-16
 
+- Rechecked the live add-on container after the previous patch and found the published dist still retained shared wizard helpers such as `setup-wizard-helpers-*.js` with direct `await prompter.text(...).trim()` calls
+- Tightened the build-time patch so it rewrites only the real shared prompt-trim crash shapes that remain in `openclaw@2026.4.14`, avoiding over-broad matches while covering Feishu/Lark, Zalo, onboard remote auth, and other shared setup helpers
+- Validated the narrowed patch against the real `openclaw@2026.4.14` npm tarball and confirmed the broken live helper paths are rewritten without corrupting nearby control flow
 - Compared the live `openclaw@2026.4.14` dist against the upstream `openclaw/openclaw` source tree and confirmed the remaining `undefined.trim()` crashes came from shared onboarding/setup/auth bundles rather than our Home Assistant auth layer
 - Reworked the build-time dist patch to cover every shared onboarding/auth/channel bundle family (`setup-*`, `onboard-*`, `channel-*`, `channels-*`, `oauth*`, `resolve-channels-*`) instead of patching only one `setup-surface-*` file and one `onboard-channels-*` file
 - Added local regression verification against the real `openclaw@2026.4.14` npm tarball and confirmed the original unsafe wizard patterns are removed before image build

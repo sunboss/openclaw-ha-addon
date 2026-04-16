@@ -1,5 +1,5 @@
 name: OpenClaw HA Add-on
-version: "2026.04.16.12"
+version: "2026.04.16.13"
 slug: openclaw_ha_addon
 description: Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints.
 url: https://github.com/sunboss/openclaw-ha-addon

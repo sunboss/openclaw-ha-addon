@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.13
+
+- Narrow the onboarding/channel dist patch to the real shared wizard crash shapes that still existed in the published `openclaw@2026.4.14` package, including the common `await prompter.text(...).trim()` helpers used by Feishu/Lark, Zalo, remote auth, and other setup flows
+
 ## 2026.04.16.12
 
 - Expand the onboarding/auth/channel dist patch so it rewrites the shared `setup-*`, `onboard-*`, `channel-*`, `channels-*`, `oauth*`, and `resolve-channels-*` bundles in `openclaw@2026.4.14`, eliminating the remaining `TypeError: Cannot read properties of undefined (reading 'trim')` crashes after successful auth or channel setup
