@@ -1,5 +1,13 @@
 # Changelog
 
+## 2026.04.17.2
+
+- Stop mutating the installed `openclaw` package after build by removing the extra `npm install --no-save --ignore-scripts ...` dependency injection step, leaving the runtime as an official upstream build plus the Home Assistant wrapper only
+
+## 2026.04.17.1
+
+- Stop patching the official OpenClaw setup/onboarding source during image build and return to an unmodified upstream `openclaw/openclaw` `v2026.4.14` source build while keeping the Home Assistant wrapper UI and services intact
+
 ## 2026.04.16.14
 
 - Rebuild the bundled OpenClaw runtime from the official `openclaw/openclaw` `v2026.4.14` source tag during image build instead of installing the published npm dist and patching hashed bundles afterward

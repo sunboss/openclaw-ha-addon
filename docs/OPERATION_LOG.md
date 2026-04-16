@@ -1,5 +1,11 @@
 # Operation Log
 
+## 2026-04-17
+
+- Removed the post-install `npm install --no-save --ignore-scripts ...` step that injected bundled plugin dependencies directly into `/usr/local/lib/node_modules/openclaw`, so the shipped runtime is now the upstream `openclaw` build as-is rather than an add-on-mutated dependency tree
+- Removed the custom `patch-openclaw-source.mjs` step from the image build and returned the runtime build to the official `openclaw/openclaw` `v2026.4.14` source tree without local onboarding/setup source mutations
+- Kept the Home Assistant add-on wrapper, ingress layer, HTTPS gateway entry, maintenance shell entry, and branding assets unchanged while resetting only the embedded OpenClaw runtime build path
+
 ## 2026-04-16
 
 - Switched the runtime build away from `npm install openclaw@2026.4.14` and onto the official `openclaw/openclaw` `v2026.4.14` source tag so the add-on no longer depends on post-install mutation of hashed dist bundles
@@ -36,7 +42,6 @@
 
 ## Validation
 
-- `node scripts/patch-openclaw-source.mjs <temp-openclaw-source>`
 - local official source-tag validation:
   - `corepack pnpm install --frozen-lockfile`
   - `corepack pnpm build:docker`
