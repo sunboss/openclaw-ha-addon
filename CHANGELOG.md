@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.6
+
+- Replace garbled fallback text in the Gateway, Shell, and UI recovery pages with clean readable copy so the jump page no longer shows mojibake
+
 ## 2026.04.16.5
 
 - Rewrite `README`, `DOCS`, and `INSTALL` into clean bilingual English and Chinese documentation

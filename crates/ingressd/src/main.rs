@@ -670,13 +670,13 @@ fn fallback_gateway_response() -> Response<Body> {
   <style>
     body {
       margin: 0;
-      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
-      background: linear-gradient(180deg, #0d1b38 0%, #111f3d 100%);
-      color: #dbe8ff;
+      min-height: 100vh;
       display: flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
+      background: linear-gradient(180deg, #0d1b38 0%, #111f3d 100%);
+      color: #dbe8ff;
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
     }
     .card {
       max-width: 480px;
@@ -706,8 +706,8 @@ fn fallback_gateway_response() -> Response<Body> {
 <body>
   <div class="card">
     <h1>OpenClaw Gateway</h1>
-    <p>Gateway 濠殿喗绻愮徊钘夛耿椤忓牆瑙︽い鏍ㄨ壘琚熼梺鎸庣☉閻倿鍩€椤掍浇澹橀柣鏍х埣濡線鍩€椤掑倹鍟?30 闂?60 缂備礁顦扮敮鍥焵?br>婵＄偑鍊楅弫璇差焽閻楀牆顕辨慨妯哄暱濞堜即鏌涢弬璇插闁糕晜鐩顒勬嚋椤戣棄浜?/p>
-    <button class="btn" onclick="location.reload()">缂備焦鏌ㄩ鍛暤閸℃稑绀嗛梺鍨儐閻撯偓</button>
+    <p>Gateway is still starting or temporarily unavailable. Wait 30 to 60 seconds and refresh this page. If it still does not open, check the add-on logs and confirm that the upstream OpenClaw Gateway has finished booting.</p>
+    <button class="btn" onclick="location.reload()">Refresh</button>
   </div>
 </body>
 </html>"#
@@ -724,7 +724,7 @@ fn fallback_shell_response() -> Response<Body> {
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta http-equiv="refresh" content="5">
-  <title>缂傚倷绀侀悺銊︽叏?Shell</title>
+  <title>OpenClaw Shell</title>
   <style>
     body {
       margin: 0;
@@ -762,9 +762,9 @@ fn fallback_shell_response() -> Response<Body> {
 </head>
 <body>
   <div class="card">
-    <h1>缂傚倷绀侀悺銊︽叏?Shell 濠殿喗绻愮徊钘夛耿椤忓牆瑙︽い鏍ㄨ壘琚?/h1>
-    <p>ttyd 闂佸搫鐗嗙粔瀛樻叏閻斿憡浜ゆ俊顖濆吹濮婇箖鎮樿箛姘惈闁告閰ｉ弫宥呯暆閸曗斁鍋撴径鎰棃妞ゎ偒鍘剧粣妤呮煠婵傚绨诲┑顔规櫊瀹曟岸鏌ㄧ€ｎ偆鍘愰梺闈涙閸婂潡鍩€椤掍浇澹橀柣鏍х埣瀹曪綁顢旈崼鐔剁帛闁荤喐娲戠粈渚€宕甸幋鐘电煋闁瑰搫顑傞崑?/p>
-    <button class="btn" onclick="location.reload()">缂備焦鏌ㄩ鍛暤閸℃稑绀嗛梺鍨儐閻撯偓</button>
+    <h1>OpenClaw Shell is not ready yet</h1>
+    <p>The maintenance shell is still starting, usually because ttyd has not finished booting. Wait a few seconds and refresh. If the shell stays unavailable, check the add-on logs and confirm that the terminal service is running.</p>
+    <button class="btn" onclick="location.reload()">Refresh</button>
   </div>
 </body>
 </html>"#
@@ -835,13 +835,12 @@ fn fallback_ui_response() -> Response<Body> {
     <div class="card">
       <h1>OpenClaw HA Add-on</h1>
       <p>
-        Ingress 閻庣懓鎲¤ぐ鍐箹闁垮鍎熼柡鍐╂尵缁€澶娒?Rust UI 闂佸憡鑹惧ù鐑筋敂椤掍胶顩风€广儱鎳忛煬顒勬煕濮樼厧鐏犲┑顔规櫊楠炲寮介鐐搭仧闂佸憡鍑归崹顖炴嚈閹达箑违?
-        闁哄鏅滈悷銈夋煂濠婂嫭浜ら柛銉ｅ妽鐠囩偛顪冮妶鍥ㄦ毄闁轰降鍊濆鍫曞Ψ閳衡偓缂傚鏌涜箛鎾缎㈡繝鈧?UI 闁诲繐绻戠喊宥咃耿椤撶姭鍋撻悷鎷屽闁告瑥绻掓禍鍛婃綇閳轰礁纾块梺鍝勫暢濞夋盯宕甸銏″仢闁规鍠掗弫鍕煟?502 婵＄偑鍊楅弫璇差焽娴兼潙违?
+        Home Assistant Ingress reached the add-on, but the internal UI service is still unavailable or restarting. Refresh this page first. If the problem continues, check the add-on logs and confirm that <code>haos-ui</code>, <code>ingressd</code>, and <code>openclaw-gateway</code> are all running.
       </p>
       <div class="actions">
-        <button class="btn" type="button" onclick="location.reload()">闂備焦褰冪粔鐢稿蓟婵犲洤绀夐柣妯煎劋缁?/button>
-        <a class="btn" href="./shell/" target="_blank" rel="noopener noreferrer">缁存姢 Shell</a>
-        <a class="btn" href="./openclaw-ca.crt" target="_blank" rel="noopener noreferrer">婵炴垶鎸搁鍫澝?CA 闁荤姴娲ｅ鎺楀礉?/a>
+        <button class="btn" type="button" onclick="location.reload()">Refresh</button>
+        <a class="btn" href="./shell/" target="_blank" rel="noopener noreferrer">Open Shell</a>
+        <a class="btn" href="./openclaw-ca.crt" target="_blank" rel="noopener noreferrer">Download CA</a>
       </div>
     </div>
   </div>
@@ -1035,3 +1034,4 @@ mod tests {
         );
     }
 }
+

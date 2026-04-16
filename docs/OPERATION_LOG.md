@@ -2,13 +2,14 @@
 
 ## 2026-04-16
 
+- Replaced garbled fallback copy in the Gateway jump page, Shell fallback page, and UI fallback page with clean readable recovery text
 - Rewrote `README.md`, `DOCS.md`, and `INSTALL.md` into professional bilingual English and Chinese documentation
 - Replaced relative logo links with absolute raw GitHub image URLs so the Home Assistant information page can render the full OpenClaw logo reliably
 - Restored startup doctor behavior so first boot always runs `openclaw doctor --fix`, while later boots only run it when `run_doctor_on_start` is enabled
 - Continued the new-project reset under the public name `OpenClaw HA Add-on`
 - Kept the main page focused on two production entry buttons only:
-  - `打开网关`
-  - `进入命令行`
+  - `Open Gateway`
+  - `Open Shell`
 - Removed the leftover `/open-shell` helper route so the Shell entry path is now single and direct
 - Expanded the Home Assistant config page with additional supported official gateway fields:
   - `gateway_mode`
