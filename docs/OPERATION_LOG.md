@@ -2,6 +2,7 @@
 
 ## 2026-04-16
 
+- Fixed the GHCR build regression in the onboarding patch release by selecting the actual `onboard-channels` bundle that contains the shared `trim()` bug inside the published npm package
 - Patched the bundled `openclaw` onboarding dist files at build time so shared QuickStart flows no longer crash on `undefined.trim()` after successful auth or channel setup
 - Added a conservative runtime model inference step: if a fresh install already has `openai-codex` auth profiles but no configured primary model yet, the add-on now seeds `agents.defaults.model.primary` with `openai-codex/gpt-5.4`
 - Replaced the HA lobster icon assets with a newly cut transparent-background lobster image and removed the stale white-square / black-edge icon variants

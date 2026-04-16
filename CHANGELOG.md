@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.11
+
+- Fix the GHCR build for the onboarding patch release by patching the correct `onboard-channels-*.js` bundle inside the published `openclaw@2026.4.14` package
+
 ## 2026.04.16.10
 
 - Patch the bundled `openclaw@2026.4.14` onboarding dist files during image build so shared QuickStart flows no longer crash on `TypeError: Cannot read properties of undefined (reading 'trim')` after successful auth / channel setup

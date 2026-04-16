@@ -17,6 +17,22 @@ function firstFile(prefix) {
   return path.join(distDir, matches[0]);
 }
 
+function fileContaining(prefix, snippet) {
+  const matches = fs
+    .readdirSync(distDir)
+    .filter((name) => name.startsWith(prefix) && name.endsWith(".js"))
+    .sort()
+    .map((name) => path.join(distDir, name));
+  if (matches.length === 0) fail(`unable to find dist file with prefix "${prefix}"`);
+
+  for (const match of matches) {
+    const source = fs.readFileSync(match, "utf8");
+    if (source.includes(snippet)) return match;
+  }
+
+  fail(`unable to find expected snippet in dist files with prefix "${prefix}"`);
+}
+
 function replaceExact(filePath, before, after, label) {
   const source = fs.readFileSync(filePath, "utf8");
   if (!source.includes(before)) fail(`missing expected snippet for ${label} in ${filePath}`);
@@ -33,11 +49,12 @@ replaceExact(
   "setup-surface promptFeishuAppId"
 );
 
-const onboardChannelsFile = firstFile("onboard-channels-");
+const onboardChannelsBefore =
+  `\t\t\t\t\tconst trimmedValue = (await prompter.text({\n\t\t\t\t\t\tmessage: textInput.message,\n\t\t\t\t\t\tinitialValue,\n\t\t\t\t\t\tplaceholder: textInput.placeholder,\n\t\t\t\t\t\tvalidate: (value) => {\n\t\t\t\t\t\t\tconst trimmed = normalizeOptionalString(value) ?? "";\n\t\t\t\t\t\t\tif (!trimmed && textInput.required !== false) return "Required";\n\t\t\t\t\t\t\treturn textInput.validate?.({\n\t\t\t\t\t\t\t\tvalue: trimmed,\n\t\t\t\t\t\t\t\tcfg: next,\n\t\t\t\t\t\t\t\taccountId,\n\t\t\t\t\t\t\t\tcredentialValues\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t})).trim();`;
+const onboardChannelsFile = fileContaining("onboard-channels-", onboardChannelsBefore);
 replaceExact(
   onboardChannelsFile,
-  `\t\t\t\t\tconst trimmedValue = (await prompter.text({\n\t\t\t\t\t\tmessage: textInput.message,\n\t\t\t\t\t\tinitialValue,\n\t\t\t\t\t\tplaceholder: textInput.placeholder,\n\t\t\t\t\t\tvalidate: (value) => {\n\t\t\t\t\t\t\tconst trimmed = normalizeOptionalString(value) ?? "";\n\t\t\t\t\t\t\tif (!trimmed && textInput.required !== false) return "Required";\n\t\t\t\t\t\t\treturn textInput.validate?.({\n\t\t\t\t\t\t\t\tvalue: trimmed,\n\t\t\t\t\t\t\t\tcfg: next,\n\t\t\t\t\t\t\t\taccountId,\n\t\t\t\t\t\t\t\tcredentialValues\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t})).trim();`,
+  onboardChannelsBefore,
   `\t\t\t\t\tconst textValue = await prompter.text({\n\t\t\t\t\t\tmessage: textInput.message,\n\t\t\t\t\t\tinitialValue,\n\t\t\t\t\t\tplaceholder: textInput.placeholder,\n\t\t\t\t\t\tvalidate: (value) => {\n\t\t\t\t\t\t\tconst trimmed = normalizeOptionalString(value) ?? "";\n\t\t\t\t\t\t\tif (!trimmed && textInput.required !== false) return "Required";\n\t\t\t\t\t\t\treturn textInput.validate?.({\n\t\t\t\t\t\t\t\tvalue: trimmed,\n\t\t\t\t\t\t\t\tcfg: next,\n\t\t\t\t\t\t\t\taccountId,\n\t\t\t\t\t\t\t\tcredentialValues\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t\tconst trimmedValue = typeof textValue === "string" ? textValue.trim() : "";`,
   "onboard-channels text input"
 );
-
