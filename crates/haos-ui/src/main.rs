@@ -214,7 +214,16 @@ struct OpenClawCommandResult {
     stderr: String,
 }
 
-async fn run_openclaw_command(args: Vec<&'static str>) -> Result<OpenClawCommandResult, String> {
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PendingDeviceRequest {
+    request_id: String,
+    client_id: String,
+    client_mode: String,
+    platform: String,
+    ts: i64,
+}
+
+async fn run_openclaw_command(args: Vec<String>) -> Result<OpenClawCommandResult, String> {
     tokio::task::spawn_blocking(move || {
         let output = Command::new("openclaw")
             .args(&args)
@@ -230,22 +239,138 @@ async fn run_openclaw_command(args: Vec<&'static str>) -> Result<OpenClawCommand
     .map_err(|err| format!("后台任务失败：{err}"))?
 }
 
+fn parse_pending_requests(output: &str) -> Vec<PendingDeviceRequest> {
+    let Ok(json) = serde_json::from_str::<serde_json::Value>(output) else {
+        return Vec::new();
+    };
+
+    let pending = match json.get("pending") {
+        Some(serde_json::Value::Array(items)) => items.clone(),
+        Some(serde_json::Value::Object(map)) => map.values().cloned().collect(),
+        _ => Vec::new(),
+    };
+
+    pending
+        .into_iter()
+        .filter_map(|item| {
+            let request_id = item.get("requestId")?.as_str()?.trim().to_string();
+            if request_id.is_empty() {
+                return None;
+            }
+
+            let client_id = item
+                .get("clientId")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            let client_mode = item
+                .get("clientMode")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            let platform = item
+                .get("platform")
+                .and_then(|value| value.as_str())
+                .unwrap_or_default()
+                .trim()
+                .to_string();
+            let ts = item
+                .get("ts")
+                .and_then(|value| value.as_i64())
+                .or_else(|| item.get("createdAtMs").and_then(|value| value.as_i64()))
+                .unwrap_or_default();
+
+            Some(PendingDeviceRequest {
+                request_id,
+                client_id,
+                client_mode,
+                platform,
+                ts,
+            })
+        })
+        .collect()
+}
+
+fn select_pending_request_id(output: &str) -> Option<PendingDeviceRequest> {
+    let mut pending = parse_pending_requests(output);
+    pending.sort_by(|left, right| {
+        let left_browser = left.client_mode == "webchat"
+            || left.client_id == "openclaw-control-ui"
+            || left.client_id == "openclaw-control";
+        let right_browser = right.client_mode == "webchat"
+            || right.client_id == "openclaw-control-ui"
+            || right.client_id == "openclaw-control";
+
+        right_browser
+            .cmp(&left_browser)
+            .then_with(|| right.ts.cmp(&left.ts))
+    });
+    pending.into_iter().next()
+}
+
 async fn approve_latest_device() -> impl IntoResponse {
-    match run_openclaw_command(vec!["devices", "approve", "--latest"]).await {
-        Ok(result) if result.ok => Json(serde_json::json!({
-            "ok": true,
-            "message": if !result.stdout.is_empty() { result.stdout } else { "已确认最新授权请求".to_string() }
-        })),
-        Ok(result) => Json(serde_json::json!({
+    match run_openclaw_command(vec![
+        "devices".to_string(),
+        "list".to_string(),
+        "--json".to_string(),
+    ])
+    .await
+    {
+        Ok(list_result) if list_result.ok => {
+            let Some(request) = select_pending_request_id(&list_result.stdout) else {
+                return Json(serde_json::json!({
+                    "ok": false,
+                    "message": "当前没有待批准的设备请求。请先在登录设备上重新发起授权，再回来确认。"
+                }));
+            };
+
+            match run_openclaw_command(vec![
+                "devices".to_string(),
+                "approve".to_string(),
+                request.request_id.clone(),
+            ])
+            .await
+            {
+                Ok(result) if result.ok => Json(serde_json::json!({
+                    "ok": true,
+                    "message": if !result.stdout.is_empty() {
+                        result.stdout
+                    } else {
+                        format!(
+                            "已确认授权请求：{}（{} / {}）",
+                            request.request_id, request.client_mode, request.platform
+                        )
+                    }
+                })),
+                Ok(result) => Json(serde_json::json!({
+                    "ok": false,
+                    "message": if !result.stderr.is_empty() { result.stderr } else { "确认授权失败".to_string() }
+                })),
+                Err(err) => Json(serde_json::json!({ "ok": false, "message": err })),
+            }
+        }
+        Ok(list_result) => Json(serde_json::json!({
             "ok": false,
-            "message": if !result.stderr.is_empty() { result.stderr } else { "确认授权失败".to_string() }
+            "message": if !list_result.stderr.is_empty() {
+                list_result.stderr
+            } else {
+                "读取待批准设备失败".to_string()
+            }
         })),
         Err(err) => Json(serde_json::json!({ "ok": false, "message": err })),
     }
 }
 
 async fn list_devices() -> impl IntoResponse {
-    match run_openclaw_command(vec!["devices", "list", "--json"]).await {
+    match run_openclaw_command(vec![
+        "devices".to_string(),
+        "list".to_string(),
+        "--json".to_string(),
+    ])
+    .await
+    {
         Ok(result) if result.ok => {
             let output = match serde_json::from_str::<serde_json::Value>(&result.stdout) {
                 Ok(json) => {
@@ -1073,7 +1198,7 @@ pre {{
         <button class="btn btn-primary" type="button" onclick="ocApproveLatestDevice('deviceApproveStatus')">确认最新授权</button>
       </div>
       <div class="status-hint" id="deviceListStatus">页面会直接执行官方 <code>openclaw devices list --json</code></div>
-      <div class="status-hint" id="deviceApproveStatus">按钮会在本机执行官方 <code>openclaw devices approve --latest</code></div>
+      <div class="status-hint" id="deviceApproveStatus">按钮会先读取当前 pending 列表，再按明确的 <code>requestId</code> 执行官方 <code>openclaw devices approve &lt;requestId&gt;</code></div>
       <pre id="deviceListOutput">点击“列出待批准设备”后，这里会显示 pending 与 paired 设备快照。</pre>
     </div>
   </section>
@@ -1279,5 +1404,57 @@ mod tests {
         assert!(html.contains("列出待批准设备"));
         assert!(html.contains("确认最新授权"));
         assert!(html.contains("维护 Shell"));
+    }
+
+    #[test]
+    fn select_pending_request_prefers_webchat_request_over_cli() {
+        let output = serde_json::json!({
+            "pending": [
+                {
+                    "requestId": "cli-request",
+                    "clientId": "cli",
+                    "clientMode": "cli",
+                    "platform": "linux",
+                    "ts": 200
+                },
+                {
+                    "requestId": "web-request",
+                    "clientId": "openclaw-control-ui",
+                    "clientMode": "webchat",
+                    "platform": "MacIntel",
+                    "ts": 100
+                }
+            ]
+        })
+        .to_string();
+
+        let selected = select_pending_request_id(&output).expect("selected request");
+        assert_eq!(selected.request_id, "web-request");
+    }
+
+    #[test]
+    fn select_pending_request_uses_newest_when_only_generic_requests_exist() {
+        let output = serde_json::json!({
+            "pending": {
+                "older": {
+                    "requestId": "older",
+                    "clientId": "unknown",
+                    "clientMode": "pairing",
+                    "platform": "unknown",
+                    "ts": 100
+                },
+                "newer": {
+                    "requestId": "newer",
+                    "clientId": "unknown",
+                    "clientMode": "pairing",
+                    "platform": "unknown",
+                    "ts": 200
+                }
+            }
+        })
+        .to_string();
+
+        let selected = select_pending_request_id(&output).expect("selected request");
+        assert_eq!(selected.request_id, "newer");
     }
 }

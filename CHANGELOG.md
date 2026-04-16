@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.7
+
+- Fix device approval so the UI no longer runs `openclaw devices approve --latest`; it now reads the current pending list first and approves the explicit browser `requestId`, avoiding accidental approval of the local CLI device
+
 ## 2026.04.16.6
 
 - Replace garbled fallback text in the Gateway, Shell, and UI recovery pages with clean readable copy so the jump page no longer shows mojibake
