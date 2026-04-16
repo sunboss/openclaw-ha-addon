@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.16.14
+
+- Rebuild the bundled OpenClaw runtime from the official `openclaw/openclaw` `v2026.4.14` source tag during image build instead of installing the published npm dist and patching hashed bundles afterward
+- Patch the shared onboarding/setup source files before build so auth setup, channel setup, remote gateway auth, and wizard text inputs no longer crash on `TypeError: Cannot read properties of undefined (reading 'trim')`
+
 ## 2026.04.16.13
 
 - Narrow the onboarding/channel dist patch to the real shared wizard crash shapes that still existed in the published `openclaw@2026.4.14` package, including the common `await prompter.text(...).trim()` helpers used by Feishu/Lark, Zalo, remote auth, and other setup flows

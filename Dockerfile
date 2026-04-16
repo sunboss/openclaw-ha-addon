@@ -5,6 +5,36 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 RUN cargo build --release --workspace
 
+FROM node:24-bookworm AS openclaw-builder
+
+ARG OPENCLAW_VERSION=2026.4.14
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    python3 \
+    make \
+    g++ \
+    ca-certificates \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
+RUN printf '#!/bin/sh\nexec corepack pnpm "$@"\n' > /usr/local/bin/pnpm && chmod +x /usr/local/bin/pnpm
+
+WORKDIR /build/openclaw-src
+RUN git clone --depth 1 --branch "v${OPENCLAW_VERSION}" https://github.com/openclaw/openclaw.git .
+
+COPY scripts/patch-openclaw-source.mjs /tmp/patch-openclaw-source.mjs
+RUN node /tmp/patch-openclaw-source.mjs /build/openclaw-src
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm build:docker
+RUN node scripts/ui.js build
+RUN set -eux; \
+    export OPENCLAW_PREPACK_PREPARED=1; \
+    tarball="$(npm pack --silent --pack-destination /build/out)"; \
+    cp "/build/out/${tarball}" /build/openclaw.tgz
+
 FROM node:24-bookworm-slim
 
 ARG TARGETARCH
@@ -53,8 +83,10 @@ RUN set -eux; \
     curl -fsSL "https://github.com/tsl0922/ttyd/releases/download/${TTYD_VERSION}/ttyd.${ttyd_arch}" -o /usr/local/bin/ttyd; \
     chmod +x /usr/local/bin/ttyd
 
-RUN npm config set fund false && npm config set audit false \
-    && npm install -g mcporter openclaw@${OPENCLAW_VERSION}
+RUN npm config set fund false && npm config set audit false
+
+COPY --from=openclaw-builder /build/openclaw.tgz /tmp/openclaw.tgz
+RUN npm install -g mcporter /tmp/openclaw.tgz
 
 # Pre-install all openclaw bundled plugin deps into openclaw's own node_modules so that
 # `openclaw doctor --fix` reports them as already installed (no per-startup npm download).
@@ -118,10 +150,8 @@ COPY --from=builder /src/target/release/haos-ui /usr/local/bin/haos-ui
 COPY --from=builder /src/target/release/ingressd /usr/local/bin/ingressd
 COPY --from=builder /src/target/release/oc-config /usr/local/bin/oc-config
 
-COPY scripts/patch-openclaw-dist.mjs /tmp/patch-openclaw-dist.mjs
 COPY config.yaml /etc/openclaw-addon-config.yaml
 
 RUN mkdir -p /run/nginx /run/openclaw-rs/public /config
-RUN node /tmp/patch-openclaw-dist.mjs
 
 CMD ["addon-supervisor", "haos-entry"]

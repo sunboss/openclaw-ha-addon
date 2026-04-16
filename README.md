@@ -10,17 +10,13 @@
 
 ## English
 
-`OpenClaw HA Add-on` is a thin Home Assistant wrapper around the official OpenClaw runtime.
-It keeps the upstream Gateway and CLI behavior intact while giving HAOS users a reliable HTTPS launch path and a direct maintenance Shell entry.
+`OpenClaw HA Add-on` is a thin Home Assistant wrapper for the official OpenClaw runtime.
+It keeps the upstream gateway and CLI behavior as intact as possible while giving HAOS users:
 
-### What this project includes
-
-- Official OpenClaw runtime managed by a Rust supervisor
-- Native HTTPS Gateway launch path
-- Direct maintenance Shell based on `ttyd`
-- Thin Home Assistant entry page with only the core operational actions
-- Token display and device approval helpers
-- Add-on configuration fields that are actually wired into runtime behavior
+- a direct native HTTPS Gateway entry
+- a direct maintenance Shell
+- a lightweight Home Assistant entry page
+- minimal add-on configuration that maps into real runtime behavior
 
 ### Quick install
 
@@ -35,23 +31,22 @@ https://github.com/sunboss/openclaw-ha-addon
 
 5. Install `OpenClaw HA Add-on`.
 
-### Main page
+### Main entry page
 
-The main page intentionally stays operational and minimal.
+The Home Assistant page stays intentionally small and operational.
 
 - `Open Gateway`
-  - Opens the native HTTPS Gateway directly
+  - Opens the native HTTPS Gateway directly.
 - `Open Shell`
-  - Opens the maintenance Shell directly
+  - Opens the maintenance Shell directly.
 - `Show Token`
-  - Displays the current Gateway token when available
+  - Shows the current Gateway token when available.
 - `Approve Device`
-  - Lists devices and approves the latest request through official `openclaw devices` commands
+  - Uses the official `openclaw devices` workflow to list and approve pending browser devices.
 
 ### Add-on configuration
 
-The Home Assistant configuration page is generated from [`config.yaml`](./config.yaml).
-This project only exposes fields that are currently wired end-to-end:
+The Home Assistant configuration page only exposes fields that are currently wired into the runtime:
 
 - `timezone`
 - `disable_bonjour`
@@ -73,17 +68,13 @@ This project only exposes fields that are currently wired end-to-end:
 
 ## 中文说明
 
-`OpenClaw HA Add-on` 是一个尽量保持官方 OpenClaw 运行方式不变的 Home Assistant Add-on。
-它不重做上游 Gateway，而是提供一层更稳、更薄的 HAOS 适配：启动、Ingress、HTTPS 打开路径，以及直接可用的维护 Shell。
+`OpenClaw HA Add-on` 是一个尽量贴近官方 OpenClaw 运行方式的 Home Assistant Add-on。
+它不重做上游 Gateway，而是在 HAOS 里提供一层更稳、更薄的适配：
 
-### 这个项目包含什么
-
-- 由 Rust supervisor 管理的官方 OpenClaw runtime
-- 原生 HTTPS Gateway 打开路径
-- 基于 `ttyd` 的维护 Shell
-- 只保留核心操作的 Home Assistant 入口页
-- 令牌显示与设备授权辅助
-- 真正接入运行时的 add-on 配置项
+- 原生 HTTPS Gateway 入口
+- 直接可用的维护 Shell
+- 一个轻量的 Home Assistant 入口页
+- 只暴露真正接入运行时的配置项
 
 ### 快速安装
 
@@ -98,23 +89,22 @@ https://github.com/sunboss/openclaw-ha-addon
 
 5. 安装 `OpenClaw HA Add-on`。
 
-### 主页面说明
+### 主页面
 
-主页面刻意保持精简，只保留最重要的操作入口。
+Home Assistant 里的入口页故意保持精简，只保留最关键的操作：
 
 - `打开网关`
-  - 直接打开原生 HTTPS Gateway
+  - 直接打开原生 HTTPS Gateway。
 - `进入命令行`
-  - 直接打开维护 Shell
+  - 直接打开维护 Shell。
 - `显示令牌`
-  - 显示当前 Gateway Token
-- `授权提醒 / 确认授权`
-  - 通过官方 `openclaw devices` 命令列出设备并确认最新请求
+  - 在可用时显示当前 Gateway Token。
+- `确认授权`
+  - 通过官方 `openclaw devices` 流程列出并批准待授权浏览器设备。
 
-### Add-on 配置页
+### 配置页
 
-Home Assistant 配置页由 [`config.yaml`](./config.yaml) 自动生成。
-当前只暴露已经真正接入运行时的配置项：
+Home Assistant 配置页当前只暴露已经接入运行时的字段：
 
 - `timezone`
 - `disable_bonjour`

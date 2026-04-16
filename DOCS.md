@@ -4,12 +4,12 @@
 
 ## English
 
-### Project goal
+### Project boundary
 
-`OpenClaw HA Add-on` keeps a clear boundary:
+This project intentionally keeps a clear boundary:
 
 - upstream OpenClaw remains the real runtime
-- the add-on provides Home Assistant friendly startup, ingress routing, HTTPS exposure, and a thin entry page
+- the add-on provides Home Assistant startup, ingress routing, HTTPS exposure, and a thin entry page
 - the Home Assistant page is an operational shell, not a second full control panel
 
 ### Runtime architecture
@@ -27,52 +27,30 @@ flowchart LR
     Supervisor --> Shell
 ```
 
-### Why the project prefers HTTPS
+### Why HTTPS is the preferred path
 
-Official OpenClaw Control UI expects a secure context for remote browser access.
-In practice this means:
+Official OpenClaw Control UI expects a secure browser context for remote access.
+In practice that means:
 
 - `https://<host>:18789` is the recommended path
-- `localhost` is also supported
+- `localhost` also works
 - plain `http://<lan-ip>` is not a reliable long-term Control UI path
 
-### Main page responsibilities
+### What the Home Assistant page should do
 
-The main page intentionally stays focused.
+The Home Assistant page stays focused on operations only:
 
-- Open the native Gateway
-- Open the maintenance Shell
-- Show the current model and lightweight status
-- Show or copy the Gateway token
-- Run device approval helper actions
+- open the native Gateway
+- open the maintenance Shell
+- show current model and status
+- show the current token
+- help with browser device approval
 
 It does not try to replace the upstream Gateway UI.
 
-### Supported add-on configuration
+### Configuration mapping
 
-The add-on configuration page only exposes fields that this project currently consumes.
-
-- `timezone`
-- `disable_bonjour`
-- `enable_terminal`
-- `terminal_port`
-- `gateway_mode`
-- `gateway_remote_url`
-- `gateway_bind_mode`
-- `gateway_port`
-- `gateway_public_url`
-- `gateway_auth_mode`
-- `homeassistant_token`
-- `http_proxy`
-- `gateway_trusted_proxies`
-- `gateway_additional_allowed_origins`
-- `enable_openai_api`
-- `auto_configure_mcp`
-- `run_doctor_on_start`
-
-### Official runtime mapping
-
-Where possible, the supervisor writes add-on values into the official runtime shape, including:
+Where possible, the supervisor maps add-on fields into the official OpenClaw shape:
 
 - `agents.defaults.userTimezone`
 - `gateway.mode`
@@ -86,75 +64,52 @@ Where possible, the supervisor writes add-on values into the official runtime sh
 
 ## 中文说明
 
-### 项目目标
+### 项目边界
 
-`OpenClaw HA Add-on` 的边界很明确：
+这个项目刻意保持边界清晰：
 
-- 上游 OpenClaw 仍然是真正的 runtime
-- add-on 只负责 Home Assistant 友好的启动、Ingress 路由、HTTPS 暴露和一个很薄的入口页
-- Home Assistant 里的页面是操作入口，不是第二套完整控制台
+- 上游 OpenClaw 仍然是实际运行时
+- add-on 只负责 Home Assistant 启动、Ingress 路由、HTTPS 暴露和一个轻量入口页
+- Home Assistant 页面是操作入口，不是第二套完整控制台
 
-### 运行结构
+### 运行架构
 
-当前实际结构如下：
+当前结构可以理解为：
 
 - `addon-supervisor`
   - 负责准备目录、写入运行时配置、拉起子进程
 - `ingressd`
-  - 负责 HTTPS Gateway 暴露、HA Ingress 路由，以及 Shell 反向代理
+  - 负责 HTTPS Gateway 暴露、HA Ingress 路由和 Shell 反向代理
 - `haos-ui`
   - 负责 Home Assistant 里的薄入口页
 - `OpenClaw Gateway`
-  - 真正的上游 Web 控制台
+  - 真实的上游 Web 控制台
 - `ttyd`
   - 维护 Shell
 
 ### 为什么优先使用 HTTPS
 
-官方 Control UI 对远程浏览器要求安全上下文。
-实际使用里，这意味着：
+官方 Control UI 对远程浏览器要求安全上下文。实际使用时：
 
 - 推荐入口是 `https://<host>:18789`
-- `localhost` 也可以
-- `http://局域网IP` 不是长期可靠的 Control UI 打开方式
+- `localhost` 也可用
+- `http://局域网 IP` 不适合作为长期稳定的 Control UI 打开方式
 
-### 主页面职责
+### Home Assistant 页面职责
 
-主页面只保留最需要的入口和状态：
+Home Assistant 页面只负责几个必要动作：
 
 - 打开原生 Gateway
 - 打开维护 Shell
 - 显示当前模型和轻量状态
-- 显示或复制 Gateway Token
-- 执行设备授权辅助动作
+- 显示当前 Token
+- 辅助浏览器设备授权
 
-它不会尝试替代官方 Gateway 页面本身。
+它不尝试替代官方 Gateway 页面本身。
 
-### 当前支持的配置项
+### 配置映射
 
-Home Assistant 配置页当前暴露的是这批已经接通的字段：
-
-- `timezone`
-- `disable_bonjour`
-- `enable_terminal`
-- `terminal_port`
-- `gateway_mode`
-- `gateway_remote_url`
-- `gateway_bind_mode`
-- `gateway_port`
-- `gateway_public_url`
-- `gateway_auth_mode`
-- `homeassistant_token`
-- `http_proxy`
-- `gateway_trusted_proxies`
-- `gateway_additional_allowed_origins`
-- `enable_openai_api`
-- `auto_configure_mcp`
-- `run_doctor_on_start`
-
-### 与官方运行时的映射
-
-只要有合理映射，supervisor 会把 add-on 配置写入官方配置结构，例如：
+只要字段有合理映射，supervisor 会把 add-on 配置写进官方 OpenClaw 结构，例如：
 
 - `agents.defaults.userTimezone`
 - `gateway.mode`

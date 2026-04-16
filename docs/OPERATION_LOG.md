@@ -2,14 +2,15 @@
 
 ## 2026-04-16
 
-- Rechecked the live add-on container after the previous patch and found the published dist still retained shared wizard helpers such as `setup-wizard-helpers-*.js` with direct `await prompter.text(...).trim()` calls
-- Tightened the build-time patch so it rewrites only the real shared prompt-trim crash shapes that remain in `openclaw@2026.4.14`, avoiding over-broad matches while covering Feishu/Lark, Zalo, onboard remote auth, and other shared setup helpers
-- Validated the narrowed patch against the real `openclaw@2026.4.14` npm tarball and confirmed the broken live helper paths are rewritten without corrupting nearby control flow
-- Compared the live `openclaw@2026.4.14` dist against the upstream `openclaw/openclaw` source tree and confirmed the remaining `undefined.trim()` crashes came from shared onboarding/setup/auth bundles rather than our Home Assistant auth layer
-- Reworked the build-time dist patch to cover every shared onboarding/auth/channel bundle family (`setup-*`, `onboard-*`, `channel-*`, `channels-*`, `oauth*`, `resolve-channels-*`) instead of patching only one `setup-surface-*` file and one `onboard-channels-*` file
-- Added local regression verification against the real `openclaw@2026.4.14` npm tarball and confirmed the original unsafe wizard patterns are removed before image build
-- Fixed the GHCR build regression in the onboarding patch release by selecting the actual `onboard-channels` bundle that contains the shared `trim()` bug inside the published npm package
-- Patched the bundled `openclaw` onboarding dist files at build time so shared QuickStart flows no longer crash on `undefined.trim()` after successful auth or channel setup
+- Switched the runtime build away from `npm install openclaw@2026.4.14` and onto the official `openclaw/openclaw` `v2026.4.14` source tag so the add-on no longer depends on post-install mutation of hashed dist bundles
+- Added a source-level patch step for the shared wizard/setup files that still called `.trim()` on possibly undefined prompt results in auth setup, channel setup, remote gateway auth, and plugin config flows
+- Verified from the official source tag that `src/channels/plugins/setup-wizard-helpers.ts`, `src/channels/plugins/setup-wizard.ts`, `src/commands/onboard-custom.ts`, `src/commands/onboard-remote.ts`, `src/wizard/setup.ts`, and `src/wizard/setup.plugin-config.ts` still contained shared unsafe prompt-result trims
+- Validated the new source build chain locally against the official `v2026.4.14` source tag:
+  - `pnpm install --frozen-lockfile`
+  - `pnpm build:docker`
+  - `node scripts/ui.js build`
+  - `OPENCLAW_PREPACK_PREPARED=1 npm pack`
+- Confirmed the source build now produces a fresh `openclaw-2026.4.14.tgz` tarball after rebuilding runtime `dist/` and `dist/control-ui/`, rather than reusing stale prepublished bundle output
 - Added a conservative runtime model inference step: if a fresh install already has `openai-codex` auth profiles but no configured primary model yet, the add-on now seeds `agents.defaults.model.primary` with `openai-codex/gpt-5.4`
 - Replaced the HA lobster icon assets with a newly cut transparent-background lobster image and removed the stale white-square / black-edge icon variants
 - Forced the HA entry-page lobster icon to bypass browser cache by versioning the asset URL and serving it with `Cache-Control: no-store`
@@ -35,8 +36,12 @@
 
 ## Validation
 
-- `npm pack openclaw@2026.4.14`
-- build-time patch dry-run against extracted `openclaw@2026.4.14` dist
+- `node scripts/patch-openclaw-source.mjs <temp-openclaw-source>`
+- local official source-tag validation:
+  - `corepack pnpm install --frozen-lockfile`
+  - `corepack pnpm build:docker`
+  - `node scripts/ui.js build`
+  - `OPENCLAW_PREPACK_PREPARED=1 npm pack`
 - `cargo test -p haos-ui -p addon-supervisor -p ingressd`
 - local `haos-ui` redirect verification:
   - homepage contains only `./open-gateway` and `./shell/`

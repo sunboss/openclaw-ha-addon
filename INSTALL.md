@@ -63,15 +63,15 @@ After starting the add-on, verify the following:
 https://github.com/sunboss/openclaw-ha-addon
 ```
 
-5. 刷新商店并安装 `OpenClaw HA Add-on`。
+5. 刷新加载项商店，然后安装 `OpenClaw HA Add-on`。
 
 ### 首次配置
 
-启动 add-on 之前，建议先准备好最基本的运行信息。
+在启动 add-on 之前，建议先准备好最基本的运行信息。
 
-最低建议包括：
+最少建议包括：
 
-- 可用的模型配置
+- 一套可用的模型配置
 - 对应 provider 的 URL 或 API Key
 - 是否需要自动配置 Home Assistant MCP
 
@@ -95,10 +95,10 @@ https://github.com/sunboss/openclaw-ha-addon
 1. Home Assistant 里的 add-on 页面可以正常打开。
 2. `打开网关` 能正常打开原生 HTTPS Gateway。
 3. `进入命令行` 能正常打开维护 Shell。
-4. 模型和状态区显示的是实时运行数据，而不是占位值。
+4. 模型和状态区域显示的是实时运行数据，而不是占位值。
 5. Token 和设备授权辅助动作都能正常响应。
 
-### 旧项目迁移提示
+### 从旧项目迁移
 
 如果你是从旧 add-on 迁移过来：
 
@@ -108,7 +108,7 @@ https://github.com/sunboss/openclaw-ha-addon
 - 新 add-on slug 是：
   - `openclaw_ha_addon`
 
-如果 Home Assistant 里仍然显示旧 slug 或旧路径，请移除旧 add-on，再按新仓库重新安装。
+如果 Home Assistant 里仍然显示旧 slug 或旧路径，建议移除旧 add-on，再按新仓库重新安装。
 
 ## Recommended Web UI path / 推荐 WebUI 打开方式
 
