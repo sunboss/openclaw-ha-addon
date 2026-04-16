@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.12
+
+- Expand the onboarding/auth/channel dist patch so it rewrites the shared `setup-*`, `onboard-*`, `channel-*`, `channels-*`, `oauth*`, and `resolve-channels-*` bundles in `openclaw@2026.4.14`, eliminating the remaining `TypeError: Cannot read properties of undefined (reading 'trim')` crashes after successful auth or channel setup
+
 ## 2026.04.16.11
 
 - Fix the GHCR build for the onboarding patch release by patching the correct `onboard-channels-*.js` bundle inside the published `openclaw@2026.4.14` package

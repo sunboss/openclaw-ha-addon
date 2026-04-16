@@ -2,6 +2,9 @@
 
 ## 2026-04-16
 
+- Compared the live `openclaw@2026.4.14` dist against the upstream `openclaw/openclaw` source tree and confirmed the remaining `undefined.trim()` crashes came from shared onboarding/setup/auth bundles rather than our Home Assistant auth layer
+- Reworked the build-time dist patch to cover every shared onboarding/auth/channel bundle family (`setup-*`, `onboard-*`, `channel-*`, `channels-*`, `oauth*`, `resolve-channels-*`) instead of patching only one `setup-surface-*` file and one `onboard-channels-*` file
+- Added local regression verification against the real `openclaw@2026.4.14` npm tarball and confirmed the original unsafe wizard patterns are removed before image build
 - Fixed the GHCR build regression in the onboarding patch release by selecting the actual `onboard-channels` bundle that contains the shared `trim()` bug inside the published npm package
 - Patched the bundled `openclaw` onboarding dist files at build time so shared QuickStart flows no longer crash on `undefined.trim()` after successful auth or channel setup
 - Added a conservative runtime model inference step: if a fresh install already has `openai-codex` auth profiles but no configured primary model yet, the add-on now seeds `agents.defaults.model.primary` with `openai-codex/gpt-5.4`
@@ -29,6 +32,8 @@
 
 ## Validation
 
+- `npm pack openclaw@2026.4.14`
+- build-time patch dry-run against extracted `openclaw@2026.4.14` dist
 - `cargo test -p haos-ui -p addon-supervisor -p ingressd`
 - local `haos-ui` redirect verification:
   - homepage contains only `./open-gateway` and `./shell/`

@@ -1,60 +1,107 @@
 import fs from "node:fs";
 import path from "node:path";
 
-const distDir = "/usr/local/lib/node_modules/openclaw/dist";
+const distDir =
+  process.env.OPENCLAW_DIST_DIR || "/usr/local/lib/node_modules/openclaw/dist";
+
+const TARGET_FILE_RE =
+  /^(?:onboard-|setup(?:[.-]|$)|channel(?:\.runtime|-)|channels-|oauth|auth-choice-|resolve-channels-|chutes-oauth-)/;
 
 function fail(message) {
   console.error(`patch-openclaw-dist: ${message}`);
   process.exit(1);
 }
 
-function firstFile(prefix) {
-  const matches = fs
+function listTargetFiles() {
+  if (!fs.existsSync(distDir)) fail(`dist dir not found: ${distDir}`);
+  const files = fs
     .readdirSync(distDir)
-    .filter((name) => name.startsWith(prefix) && name.endsWith(".js"))
-    .sort();
-  if (matches.length === 0) fail(`unable to find dist file with prefix "${prefix}"`);
-  return path.join(distDir, matches[0]);
-}
-
-function fileContaining(prefix, snippet) {
-  const matches = fs
-    .readdirSync(distDir)
-    .filter((name) => name.startsWith(prefix) && name.endsWith(".js"))
+    .filter((name) => name.endsWith(".js") && TARGET_FILE_RE.test(name))
     .sort()
     .map((name) => path.join(distDir, name));
-  if (matches.length === 0) fail(`unable to find dist file with prefix "${prefix}"`);
+  if (files.length === 0) fail(`no target dist files found in ${distDir}`);
+  return files;
+}
 
-  for (const match of matches) {
-    const source = fs.readFileSync(match, "utf8");
-    if (source.includes(snippet)) return match;
+function countReplace(source, pattern, replacement) {
+  let count = 0;
+  const updated = source.replace(pattern, (...args) => {
+    count += 1;
+    return typeof replacement === "function" ? replacement(...args) : replacement;
+  });
+  return { updated, count };
+}
+
+function patchFile(filePath, tempIds) {
+  const source = fs.readFileSync(filePath, "utf8");
+  let updated = source;
+  const changes = [];
+
+  const entryPlaceholder = "__OPENCLAW_SAFE_ENTRY_INPUT_TRIM__";
+  const entryCapture = countReplace(
+    updated,
+    /(?<!typeof entry\.input === "string" \? )entry\.input\.trim\(\)/g,
+    entryPlaceholder
+  );
+  updated = entryCapture.updated;
+  if (entryCapture.count > 0) changes.push(`entry.input.trim x${entryCapture.count}`);
+
+  const inputResult = countReplace(
+    updated,
+    /(?<!typeof input === "string" \? )\binput\.trim\(\)/g,
+    '(typeof input === "string" ? input.trim() : "")'
+  );
+  updated = inputResult.updated;
+  if (inputResult.count > 0) changes.push(`input.trim x${inputResult.count}`);
+
+  const entryRestore = countReplace(
+    updated,
+    new RegExp(entryPlaceholder, "g"),
+    '(typeof entry.input === "string" ? entry.input.trim() : "")'
+  );
+  updated = entryRestore.updated;
+
+  const awaitedPromptAssignment =
+    /([ \t]*)const ([A-Za-z_$][\w$]*) = \((await[\s\S]*?prompter\.(?:text|password)\([\s\S]*?)\)\.trim\(\);/g;
+  const assignmentResult = countReplace(
+    updated,
+    awaitedPromptAssignment,
+    (_, indent, name, expression) => {
+      const tempName = `__promptValue${tempIds.value++}`;
+      return `${indent}const ${tempName} = ${expression};\n${indent}const ${name} = typeof ${tempName} === "string" ? ${tempName}.trim() : "";`;
+    }
+  );
+  updated = assignmentResult.updated;
+  if (assignmentResult.count > 0)
+    changes.push(`awaited prompt assignment x${assignmentResult.count}`);
+
+  const awaitedPromptReturn =
+    /([ \t]*)return \((await[\s\S]*?prompter\.(?:text|password)\([\s\S]*?)\)\.trim\(\);/g;
+  const returnResult = countReplace(
+    updated,
+    awaitedPromptReturn,
+    (_, indent, expression) => {
+      const tempName = `__promptValue${tempIds.value++}`;
+      return `${indent}const ${tempName} = ${expression};\n${indent}return typeof ${tempName} === "string" ? ${tempName}.trim() : "";`;
+    }
+  );
+  updated = returnResult.updated;
+  if (returnResult.count > 0)
+    changes.push(`awaited prompt return x${returnResult.count}`);
+
+  if (updated !== source) {
+    fs.writeFileSync(filePath, updated, "utf8");
+    console.log(`patched ${path.basename(filePath)}: ${changes.join(", ")}`);
+    return 1;
   }
 
-  fail(`unable to find expected snippet in dist files with prefix "${prefix}"`);
+  return 0;
 }
 
-function replaceExact(filePath, before, after, label) {
-  const source = fs.readFileSync(filePath, "utf8");
-  if (!source.includes(before)) fail(`missing expected snippet for ${label} in ${filePath}`);
-  const updated = source.replace(before, after);
-  fs.writeFileSync(filePath, updated, "utf8");
-  console.log(`patched ${label}: ${path.basename(filePath)}`);
-}
+const files = listTargetFiles();
+const tempIds = { value: 1 };
+const touched = files.reduce((count, filePath) => count + patchFile(filePath, tempIds), 0);
 
-const setupSurfaceFile = firstFile("setup-surface-");
-replaceExact(
-  setupSurfaceFile,
-  `async function promptFeishuAppId(params) {\n\treturn (await params.prompter.text({\n\t\tmessage: "Enter Feishu App ID",\n\t\tinitialValue: params.initialValue,\n\t\tvalidate: (value) => value?.trim() ? void 0 : "Required"\n\t})).trim();\n}`,
-  `async function promptFeishuAppId(params) {\n\tconst value = await params.prompter.text({\n\t\tmessage: "Enter Feishu App ID",\n\t\tinitialValue: params.initialValue,\n\t\tvalidate: (value) => value?.trim() ? void 0 : "Required"\n\t});\n\treturn typeof value === "string" ? value.trim() : "";\n}`,
-  "setup-surface promptFeishuAppId"
-);
+if (touched === 0) fail(`no onboarding/setup/channel files were patched in ${distDir}`);
 
-const onboardChannelsBefore =
-  `\t\t\t\t\tconst trimmedValue = (await prompter.text({\n\t\t\t\t\t\tmessage: textInput.message,\n\t\t\t\t\t\tinitialValue,\n\t\t\t\t\t\tplaceholder: textInput.placeholder,\n\t\t\t\t\t\tvalidate: (value) => {\n\t\t\t\t\t\t\tconst trimmed = normalizeOptionalString(value) ?? "";\n\t\t\t\t\t\t\tif (!trimmed && textInput.required !== false) return "Required";\n\t\t\t\t\t\t\treturn textInput.validate?.({\n\t\t\t\t\t\t\t\tvalue: trimmed,\n\t\t\t\t\t\t\t\tcfg: next,\n\t\t\t\t\t\t\t\taccountId,\n\t\t\t\t\t\t\t\tcredentialValues\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t})).trim();`;
-const onboardChannelsFile = fileContaining("onboard-channels-", onboardChannelsBefore);
-replaceExact(
-  onboardChannelsFile,
-  onboardChannelsBefore,
-  `\t\t\t\t\tconst textValue = await prompter.text({\n\t\t\t\t\t\tmessage: textInput.message,\n\t\t\t\t\t\tinitialValue,\n\t\t\t\t\t\tplaceholder: textInput.placeholder,\n\t\t\t\t\t\tvalidate: (value) => {\n\t\t\t\t\t\t\tconst trimmed = normalizeOptionalString(value) ?? "";\n\t\t\t\t\t\t\tif (!trimmed && textInput.required !== false) return "Required";\n\t\t\t\t\t\t\treturn textInput.validate?.({\n\t\t\t\t\t\t\t\tvalue: trimmed,\n\t\t\t\t\t\t\t\tcfg: next,\n\t\t\t\t\t\t\t\taccountId,\n\t\t\t\t\t\t\t\tcredentialValues\n\t\t\t\t\t\t\t});\n\t\t\t\t\t\t}\n\t\t\t\t\t});\n\t\t\t\t\tconst trimmedValue = typeof textValue === "string" ? textValue.trim() : "";`,
-  "onboard-channels text input"
-);
+console.log(`patch-openclaw-dist: patched ${touched} file(s) in ${distDir}`);
