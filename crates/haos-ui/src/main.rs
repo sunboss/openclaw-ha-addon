@@ -439,7 +439,10 @@ async fn open_gateway(headers: HeaderMap) -> impl IntoResponse {
 
 async fn brand_icon() -> impl IntoResponse {
     (
-        [(header::CONTENT_TYPE, "image/png")],
+        [
+            (header::CONTENT_TYPE, "image/png"),
+            (header::CACHE_CONTROL, "no-store, max-age=0"),
+        ],
         include_bytes!("../assets/brand-icon.png").as_slice(),
     )
 }
@@ -1080,7 +1083,7 @@ pre {{
     <div class="hero-grid">
       <div class="hero-main">
         <div class="brand-lockup">
-          <img class="brand-icon" src="./assets/icon.png" alt="OpenClaw official lobster logo">
+          <img class="brand-icon" src="./assets/icon.png?v={addon_version}" alt="OpenClaw official lobster logo">
           <div class="brand-meta">
             <div class="eyebrow">Home Assistant Ingress</div>
             <div class="brand-rule"></div>

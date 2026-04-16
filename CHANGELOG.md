@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.8
+
+- Force-refresh the add-on header lobster icon by adding cache-busting to the UI asset URL and serving the icon with `Cache-Control: no-store`, so Home Assistant no longer shows the stale cropped image
+
 ## 2026.04.16.7
 
 - Fix device approval so the UI no longer runs `openclaw devices approve --latest`; it now reads the current pending list first and approves the explicit browser `requestId`, avoiding accidental approval of the local CLI device
