@@ -118,8 +118,10 @@ COPY --from=builder /src/target/release/haos-ui /usr/local/bin/haos-ui
 COPY --from=builder /src/target/release/ingressd /usr/local/bin/ingressd
 COPY --from=builder /src/target/release/oc-config /usr/local/bin/oc-config
 
+COPY scripts/patch-openclaw-dist.mjs /tmp/patch-openclaw-dist.mjs
 COPY config.yaml /etc/openclaw-addon-config.yaml
 
 RUN mkdir -p /run/nginx /run/openclaw-rs/public /config
+RUN node /tmp/patch-openclaw-dist.mjs
 
 CMD ["addon-supervisor", "haos-entry"]

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.16.10
+
+- Patch the bundled `openclaw@2026.4.14` onboarding dist files during image build so shared QuickStart flows no longer crash on `TypeError: Cannot read properties of undefined (reading 'trim')` after successful auth / channel setup
+- Infer `agents.defaults.model.primary = openai-codex/gpt-5.4` when a fresh install already has `openai-codex` auth profiles but no saved model yet, preventing the runtime from incorrectly falling back to `openai/gpt-5.4`
+
 ## 2026.04.16.9
 
 - Replace the HA entry-page lobster icon assets with a freshly cut transparent-background lobster image and remove the stale white-square / black-edge variants

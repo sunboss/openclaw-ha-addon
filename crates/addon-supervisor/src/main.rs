@@ -275,6 +275,52 @@ fn detect_runtime_model(config: &serde_json::Value) -> Option<String> {
         .or_else(|| json_string_path(config, "model"))
 }
 
+fn auth_profile_path(args: &HaosEntryArgs) -> PathBuf {
+    args.openclaw_config_dir
+        .join("agents")
+        .join("main")
+        .join("agent")
+        .join("auth-profiles.json")
+}
+
+fn auth_profile_providers(args: &HaosEntryArgs) -> Vec<String> {
+    let path = auth_profile_path(args);
+    let Some(contents) = fs::read_to_string(path).ok() else {
+        return Vec::new();
+    };
+    let Some(config) = serde_json::from_str::<serde_json::Value>(&contents).ok() else {
+        return Vec::new();
+    };
+    let Some(profiles) = config.get("profiles").and_then(|value| value.as_object()) else {
+        return Vec::new();
+    };
+
+    let mut providers = profiles
+        .values()
+        .filter_map(|value| value.get("provider"))
+        .filter_map(|value| value.as_str())
+        .map(str::trim)
+        .filter(|value| !value.is_empty())
+        .map(ToOwned::to_owned)
+        .collect::<Vec<_>>();
+
+    providers.sort();
+    providers.dedup();
+    providers
+}
+
+fn infer_default_model_from_auth_profiles(args: &HaosEntryArgs) -> Option<String> {
+    let providers = auth_profile_providers(args);
+    let has_openai = providers.iter().any(|provider| provider == "openai");
+    let has_openai_codex = providers.iter().any(|provider| provider == "openai-codex");
+
+    if has_openai_codex && !has_openai {
+        Some("openai-codex/gpt-5.4".to_string())
+    } else {
+        None
+    }
+}
+
 fn prepare_directories(args: &HaosEntryArgs) -> std::io::Result<()> {
     for path in [
         &args.openclaw_config_dir,
@@ -401,6 +447,8 @@ fn ensure_agent_defaults(
     args: &HaosEntryArgs,
     settings: &RuntimeSettings,
 ) {
+    let model_missing = detect_runtime_model(config).is_none();
+
     if !config.is_object() {
         *config = serde_json::json!({});
     }
@@ -431,6 +479,15 @@ fn ensure_agent_defaults(
         "userTimezone".to_string(),
         serde_json::Value::String(settings.timezone.clone()),
     );
+
+    if model_missing && let Some(inferred_model) = infer_default_model_from_auth_profiles(args) {
+        defaults.insert(
+            "model".to_string(),
+            serde_json::json!({
+                "primary": inferred_model
+            }),
+        );
+    }
 }
 
 fn ensure_gateway_defaults(
@@ -1787,6 +1844,116 @@ mod tests {
             config["agents"]["defaults"]["userTimezone"],
             settings.timezone
         );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ensure_agent_defaults_infers_codex_model_from_auth_profiles() {
+        let unique = format!("openclaw-agent-model-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let settings = sample_settings();
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        let auth_path = auth_profile_path(&args);
+        fs::create_dir_all(auth_path.parent().expect("auth profile parent"))
+            .expect("create auth profile dir");
+        fs::write(
+            &auth_path,
+            serde_json::json!({
+                "profiles": {
+                    "sunboss": {
+                        "provider": "openai-codex"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect("write auth profile");
+
+        let mut config = serde_json::json!({});
+        ensure_agent_defaults(&mut config, &args, &settings);
+
+        assert_eq!(
+            config["agents"]["defaults"]["model"]["primary"],
+            "openai-codex/gpt-5.4"
+        );
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn ensure_agent_defaults_does_not_override_existing_model() {
+        let unique = format!("openclaw-agent-existing-model-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let settings = sample_settings();
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18789,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        let auth_path = auth_profile_path(&args);
+        fs::create_dir_all(auth_path.parent().expect("auth profile parent"))
+            .expect("create auth profile dir");
+        fs::write(
+            &auth_path,
+            serde_json::json!({
+                "profiles": {
+                    "sunboss": {
+                        "provider": "openai-codex"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect("write auth profile");
+
+        let mut config = serde_json::json!({
+            "agents": {
+                "defaults": {
+                    "model": {
+                        "primary": "openai/gpt-5.4"
+                    }
+                }
+            }
+        });
+        ensure_agent_defaults(&mut config, &args, &settings);
+
+        assert_eq!(
+            config["agents"]["defaults"]["model"]["primary"],
+            "openai/gpt-5.4"
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
