@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.16.9
+
+- Replace the HA entry-page lobster icon assets with a freshly cut transparent-background lobster image and remove the stale white-square / black-edge variants
+
 ## 2026.04.16.8
 
 - Force-refresh the add-on header lobster icon by adding cache-busting to the UI asset URL and serving the icon with `Cache-Control: no-store`, so Home Assistant no longer shows the stale cropped image
