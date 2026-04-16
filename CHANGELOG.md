@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.17.3
+
+- Replace the failing in-image upstream source build with the official published `openclaw@2026.4.14` npm tarball path, so GHCR builds no longer depend on compiling the full upstream workspace and its optional native development dependencies
+
 ## 2026.04.17.2
 
 - Stop mutating the installed `openclaw` package after build by removing the extra `npm install --no-save --ignore-scripts ...` dependency injection step, leaving the runtime as an official upstream build plus the Home Assistant wrapper only

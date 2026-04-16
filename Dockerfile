@@ -5,31 +5,15 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 RUN cargo build --release --workspace
 
-FROM node:24-bookworm AS openclaw-builder
+FROM node:24-bookworm-slim AS openclaw-package
 
 ARG OPENCLAW_VERSION=2026.4.14
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    git \
-    python3 \
-    make \
-    g++ \
-    ca-certificates \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+RUN npm config set fund false && npm config set audit false
 
-RUN corepack enable && corepack prepare pnpm@10.32.1 --activate
-RUN printf '#!/bin/sh\nexec corepack pnpm "$@"\n' > /usr/local/bin/pnpm && chmod +x /usr/local/bin/pnpm
-
-WORKDIR /build/openclaw-src
-RUN git clone --depth 1 --branch "v${OPENCLAW_VERSION}" https://github.com/openclaw/openclaw.git .
-
-RUN pnpm install --frozen-lockfile
-RUN pnpm build:docker
-RUN node scripts/ui.js build
+WORKDIR /build/out
 RUN set -eux; \
-    export OPENCLAW_PREPACK_PREPARED=1; \
-    tarball="$(npm pack --silent --pack-destination /build/out)"; \
+    tarball="$(npm pack --silent --pack-destination /build/out "openclaw@${OPENCLAW_VERSION}")"; \
     cp "/build/out/${tarball}" /build/openclaw.tgz
 
 FROM node:24-bookworm-slim
@@ -82,8 +66,8 @@ RUN set -eux; \
 
 RUN npm config set fund false && npm config set audit false
 
-COPY --from=openclaw-builder /build/openclaw.tgz /tmp/openclaw.tgz
-RUN npm install -g mcporter /tmp/openclaw.tgz
+COPY --from=openclaw-package /build/openclaw.tgz /tmp/openclaw.tgz
+RUN npm install -g --omit=dev mcporter /tmp/openclaw.tgz
 
 COPY --from=builder /src/target/release/addon-supervisor /usr/local/bin/addon-supervisor
 COPY --from=builder /src/target/release/haos-ui /usr/local/bin/haos-ui

@@ -2,6 +2,8 @@
 
 ## 2026-04-17
 
+- Replaced the failing in-image upstream source build with a direct install path from the official published `openclaw@2026.4.14` npm tarball after confirming that the tarball itself installs successfully in a clean local npm prefix
+- Removed the `git clone` + `pnpm install` + `pnpm build:docker` + `npm pack` Docker path that was pulling optional native build dependencies such as `@discordjs/opus` into the GHCR workflow and blocking image publication
 - Removed the post-install `npm install --no-save --ignore-scripts ...` step that injected bundled plugin dependencies directly into `/usr/local/lib/node_modules/openclaw`, so the shipped runtime is now the upstream `openclaw` build as-is rather than an add-on-mutated dependency tree
 - Removed the custom `patch-openclaw-source.mjs` step from the image build and returned the runtime build to the official `openclaw/openclaw` `v2026.4.14` source tree without local onboarding/setup source mutations
 - Kept the Home Assistant add-on wrapper, ingress layer, HTTPS gateway entry, maintenance shell entry, and branding assets unchanged while resetting only the embedded OpenClaw runtime build path
@@ -43,10 +45,8 @@
 ## Validation
 
 - local official source-tag validation:
-  - `corepack pnpm install --frozen-lockfile`
-  - `corepack pnpm build:docker`
-  - `node scripts/ui.js build`
-  - `OPENCLAW_PREPACK_PREPARED=1 npm pack`
+  - `npm.cmd pack openclaw@2026.4.14 --pack-destination C:\Users\SunBoss\Desktop\555\.tmp-openclaw-npm`
+  - `npm.cmd install --prefix C:\Users\SunBoss\Desktop\555\.tmp-openclaw-install --omit=dev C:\Users\SunBoss\Desktop\555\.tmp-openclaw-npm\openclaw-2026.4.14.tgz`
 - `cargo test -p haos-ui -p addon-supervisor -p ingressd`
 - local `haos-ui` redirect verification:
   - homepage contains only `./open-gateway` and `./shell/`
