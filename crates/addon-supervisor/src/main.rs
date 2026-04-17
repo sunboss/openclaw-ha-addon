@@ -124,13 +124,19 @@ fn main() -> ExitCode {
             ingress_bin,
             ttyd_bin,
             run_doctor_on_start,
-        } => run_services(
-            gateway_bin,
-            ui_bin,
-            ingress_bin,
-            ttyd_bin,
-            run_doctor_on_start,
-        ),
+        } => {
+            let args = default_haos_entry_args();
+            let settings = runtime_settings(&load_options(&args.options_file));
+            run_services(
+                args,
+                settings,
+                gateway_bin,
+                ui_bin,
+                ingress_bin,
+                ttyd_bin,
+                run_doctor_on_start,
+            )
+        }
     }
 }
 
@@ -188,13 +194,46 @@ fn haos_entry(args: HaosEntryArgs) -> ExitCode {
     let openclaw_version = detect_openclaw_version(&args.gateway_bin);
     apply_status_env(&add_on_version, &openclaw_version);
 
+    let gateway_bin = args.gateway_bin.clone();
+    let ui_bin = args.ui_bin.clone();
+    let ingress_bin = args.ingress_bin.clone();
+    let ttyd_bin = args.ttyd_bin.clone();
+    let run_doctor_on_start = settings.run_doctor_on_start;
     run_services(
-        args.gateway_bin,
-        args.ui_bin,
-        args.ingress_bin,
-        args.ttyd_bin,
-        settings.run_doctor_on_start,
+        args,
+        settings,
+        gateway_bin,
+        ui_bin,
+        ingress_bin,
+        ttyd_bin,
+        run_doctor_on_start,
     )
+}
+
+fn default_haos_entry_args() -> HaosEntryArgs {
+    HaosEntryArgs {
+        options_file: PathBuf::from("/data/options.json"),
+        openclaw_config_dir: PathBuf::from("/config/.openclaw"),
+        openclaw_config_path: PathBuf::from("/config/.openclaw/openclaw.json"),
+        openclaw_workspace_dir: PathBuf::from("/config/.openclaw/workspace"),
+        mcporter_home_dir: PathBuf::from("/config/.mcporter"),
+        mcporter_config: PathBuf::from("/config/.mcporter/mcporter.json"),
+        cert_dir: PathBuf::from("/config/certs"),
+        public_share_dir: PathBuf::from("/run/openclaw-rs/public"),
+        gateway_internal_port: env::var("GATEWAY_INTERNAL_PORT")
+            .ok()
+            .and_then(|value| value.parse::<u16>().ok())
+            .unwrap_or(18790),
+        ui_port: env::var("UI_PORT")
+            .ok()
+            .and_then(|value| value.parse::<u16>().ok())
+            .unwrap_or(48101),
+        gateway_bin: "openclaw".to_string(),
+        oc_config_bin: "oc-config".to_string(),
+        ui_bin: "haos-ui".to_string(),
+        ingress_bin: "ingressd".to_string(),
+        ttyd_bin: "ttyd".to_string(),
+    }
 }
 
 fn load_options(path: &Path) -> AddonOptions {
@@ -523,24 +562,36 @@ fn bootstrap_openclaw_config(
             }
         })
     };
+    normalize_runtime_config(&mut config, args, settings);
+    write_runtime_config(&args.openclaw_config_path, &config)?;
+    Ok(())
+}
+
+fn normalize_runtime_config(
+    config: &mut serde_json::Value,
+    args: &HaosEntryArgs,
+    settings: &RuntimeSettings,
+) {
     if let Some(object) = config.as_object_mut() {
         object.remove("workspaceDir");
     }
-    ensure_agent_defaults(&mut config, args, settings);
-    ensure_gateway_defaults(&mut config, args, settings);
-    ensure_trusted_local_plugins(&mut config, args);
+    ensure_agent_defaults(config, args, settings);
+    ensure_gateway_defaults(config, args, settings);
+    ensure_control_ui_defaults(config, settings);
+    ensure_trusted_local_plugins(config, args);
+}
 
-    if let Some(parent) = args.openclaw_config_path.parent() {
+fn write_runtime_config(path: &Path, config: &serde_json::Value) -> std::io::Result<()> {
+    if let Some(parent) = path.parent() {
         fs::create_dir_all(parent)?;
     }
     fs::write(
-        &args.openclaw_config_path,
+        path,
         format!(
             "{}\n",
-            serde_json::to_string_pretty(&config).unwrap_or_else(|_| "{}".to_string())
+            serde_json::to_string_pretty(config).unwrap_or_else(|_| "{}".to_string())
         ),
-    )?;
-    Ok(())
+    )
 }
 
 fn ensure_agent_defaults(
@@ -644,6 +695,23 @@ fn ensure_gateway_defaults(
     if !trusted_proxies.is_array() {
         *trusted_proxies = serde_json::json!(["127.0.0.1/32", "::1/128"]);
     }
+    let trusted_proxies = trusted_proxies.as_array_mut().expect("trustedProxies array");
+    let mut merged_trusted_proxies = trusted_proxies
+        .iter()
+        .filter_map(|value| value.as_str().map(ToOwned::to_owned))
+        .collect::<Vec<_>>();
+    for default_proxy in ["127.0.0.1/32", "::1/128"] {
+        if !merged_trusted_proxies
+            .iter()
+            .any(|existing| existing == default_proxy)
+        {
+            merged_trusted_proxies.push(default_proxy.to_string());
+        }
+    }
+    *trusted_proxies = merged_trusted_proxies
+        .into_iter()
+        .map(serde_json::Value::String)
+        .collect::<Vec<_>>();
 
     let auth = gateway
         .entry("auth".to_string())
@@ -692,6 +760,33 @@ fn ensure_gateway_defaults(
             serde_json::Value::Bool(settings.enable_openai_api),
         );
     }
+}
+
+fn ensure_control_ui_defaults(config: &mut serde_json::Value, settings: &RuntimeSettings) {
+    if !config.is_object() {
+        *config = serde_json::json!({});
+    }
+
+    let root = config.as_object_mut().expect("config object");
+    let gateway = root
+        .entry("gateway".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !gateway.is_object() {
+        *gateway = serde_json::json!({});
+    }
+
+    let gateway = gateway.as_object_mut().expect("gateway object");
+    let control_ui = gateway
+        .entry("controlUi".to_string())
+        .or_insert_with(|| serde_json::json!({}));
+    if !control_ui.is_object() {
+        *control_ui = serde_json::json!({});
+    }
+
+    control_ui.as_object_mut().expect("controlUi object").insert(
+        "allowedOrigins".to_string(),
+        serde_json::json!(build_control_ui_allowed_origins(settings)),
+    );
 }
 
 fn ensure_trusted_local_plugins(config: &mut serde_json::Value, args: &HaosEntryArgs) {
@@ -897,6 +992,30 @@ fn apply_gateway_settings(args: &HaosEntryArgs, settings: &RuntimeSettings) -> b
     )
 }
 
+fn reconcile_runtime_config(
+    args: &HaosEntryArgs,
+    settings: &RuntimeSettings,
+) -> std::io::Result<bool> {
+    let mut config =
+        load_runtime_config(&args.openclaw_config_path).unwrap_or_else(|| serde_json::json!({}));
+    let original = config.clone();
+    normalize_runtime_config(&mut config, args, settings);
+    if config == original {
+        return Ok(false);
+    }
+
+    write_runtime_config(&args.openclaw_config_path, &config)?;
+
+    let gateway_token = json_string_path(&config, "gateway.auth.token").unwrap_or_default();
+    if !write_gateway_token_file(args, &gateway_token) {
+        return Err(std::io::Error::other(
+            "failed to refresh gateway token file after config reconcile",
+        ));
+    }
+
+    Ok(true)
+}
+
 fn merged_trusted_proxies(settings: &RuntimeSettings) -> Vec<String> {
     let mut proxies = vec!["127.0.0.1/32".to_string(), "::1/128".to_string()];
     for proxy in &settings.gateway_trusted_proxies {
@@ -937,6 +1056,31 @@ fn build_control_ui_allowed_origins(settings: &RuntimeSettings) -> Vec<String> {
     origins.sort();
     origins.dedup();
     origins
+}
+
+async fn reconcile_runtime_config_loop(
+    args: HaosEntryArgs,
+    settings: RuntimeSettings,
+    mut shutdown_rx: watch::Receiver<bool>,
+) {
+    loop {
+        tokio::select! {
+            _ = shutdown_rx.changed() => break,
+            _ = sleep(Duration::from_secs(2)) => {}
+        }
+
+        match reconcile_runtime_config(&args, &settings) {
+            Ok(true) => {
+                println!(
+                    "addon-supervisor: reconciled runtime config drift back to add-on defaults"
+                );
+            }
+            Ok(false) => {}
+            Err(err) => {
+                eprintln!("addon-supervisor: failed to reconcile runtime config: {err}");
+            }
+        }
+    }
 }
 
 fn detect_lan_ips() -> Vec<String> {
@@ -988,6 +1132,16 @@ fn detect_lan_ip() -> Option<String> {
 
 fn write_gateway_token_file(args: &HaosEntryArgs, token: &str) -> bool {
     let path = args.public_share_dir.join("gateway.token");
+    if let Some(parent) = path.parent()
+        && let Err(err) = fs::create_dir_all(parent)
+    {
+        eprintln!(
+            "addon-supervisor: failed to prepare gateway token directory {}: {}",
+            parent.display(),
+            err
+        );
+        return false;
+    }
     if let Err(err) = fs::write(&path, token) {
         eprintln!(
             "addon-supervisor: failed to write gateway token file {}: {}",
@@ -1170,6 +1324,8 @@ fn remove_pid_file(name: &str) {
 }
 
 fn run_services(
+    args: HaosEntryArgs,
+    settings: RuntimeSettings,
     gateway_bin: String,
     ui_bin: String,
     ingress_bin: String,
@@ -1194,6 +1350,12 @@ fn run_services(
 
         let (shutdown_tx, shutdown_rx) = watch::channel(false);
         let mut handles = Vec::new();
+
+        handles.push(tokio::spawn(reconcile_runtime_config_loop(
+            args.clone(),
+            settings.clone(),
+            shutdown_tx.subscribe(),
+        )));
 
         let gateway_spec = build_gateway_spec(gateway_bin.clone());
 
@@ -2137,6 +2299,64 @@ mod tests {
             config["gateway"]["http"]["endpoints"]["chatCompletions"]["enabled"],
             false
         );
+    }
+
+    #[test]
+    fn reconcile_runtime_config_restores_internal_gateway_port_and_proxies() {
+        let unique = format!("openclaw-reconcile-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let args = HaosEntryArgs {
+            options_file: root.join("options.json"),
+            openclaw_config_dir: root.join(".openclaw"),
+            openclaw_config_path: root.join(".openclaw").join("openclaw.json"),
+            openclaw_workspace_dir: root.join(".openclaw").join("workspace"),
+            mcporter_home_dir: root.join(".mcporter"),
+            mcporter_config: root.join(".mcporter").join("mcporter.json"),
+            cert_dir: root.join("certs"),
+            public_share_dir: root.join("html"),
+            gateway_internal_port: 18790,
+            ui_port: 48101,
+            gateway_bin: "openclaw".to_string(),
+            oc_config_bin: "oc-config".to_string(),
+            ui_bin: "haos-ui".to_string(),
+            ingress_bin: "ingressd".to_string(),
+            ttyd_bin: "ttyd".to_string(),
+        };
+
+        fs::create_dir_all(&args.openclaw_config_dir).expect("config dir");
+        fs::write(
+            &args.openclaw_config_path,
+            serde_json::json!({
+                "gateway": {
+                    "mode": "local",
+                    "bind": "loopback",
+                    "port": 18789,
+                    "trustedProxies": [],
+                    "auth": {
+                        "mode": "token",
+                        "token": "tok_test_12345678"
+                    }
+                }
+            })
+            .to_string(),
+        )
+        .expect("seed drifted config");
+
+        let changed = reconcile_runtime_config(&args, &sample_settings()).expect("reconcile");
+        assert!(changed);
+
+        let config = load_runtime_config(&args.openclaw_config_path).expect("normalized config");
+        assert_eq!(config["gateway"]["port"], 18790);
+        assert_eq!(
+            config["gateway"]["trustedProxies"],
+            serde_json::json!(["127.0.0.1/32", "::1/128"])
+        );
+        assert_eq!(
+            config["gateway"]["controlUi"]["allowedOrigins"],
+            serde_json::json!(build_control_ui_allowed_origins(&sample_settings()))
+        );
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]

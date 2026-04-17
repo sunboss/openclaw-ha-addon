@@ -239,6 +239,33 @@ async fn run_openclaw_command(args: Vec<String>) -> Result<OpenClawCommandResult
     .map_err(|err| format!("后台任务失败：{err}"))?
 }
 
+fn internal_gateway_cli_args() -> Vec<String> {
+    let mut args = Vec::new();
+    let gateway_port = env::var("GATEWAY_INTERNAL_PORT")
+        .ok()
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "18790".to_string());
+    args.push("--url".to_string());
+    args.push(format!("ws://127.0.0.1:{gateway_port}"));
+
+    let token = load_runtime_config()
+        .as_ref()
+        .and_then(|config| string_path(config, "gateway.auth.token"))
+        .or_else(|| {
+            env::var("OPENCLAW_GATEWAY_TOKEN")
+                .ok()
+                .map(|value| value.trim().to_string())
+                .filter(|value| !value.is_empty())
+        });
+    if let Some(token) = token {
+        args.push("--token".to_string());
+        args.push(token);
+    }
+
+    args
+}
+
 fn parse_pending_requests(output: &str) -> Vec<PendingDeviceRequest> {
     let Ok(json) = serde_json::from_str::<serde_json::Value>(output) else {
         return Vec::new();
@@ -311,11 +338,9 @@ fn select_pending_request_id(output: &str) -> Option<PendingDeviceRequest> {
 }
 
 async fn approve_latest_device() -> impl IntoResponse {
-    match run_openclaw_command(vec![
-        "devices".to_string(),
-        "list".to_string(),
-        "--json".to_string(),
-    ])
+    let mut list_args = vec!["devices".to_string(), "list".to_string(), "--json".to_string()];
+    list_args.extend(internal_gateway_cli_args());
+    match run_openclaw_command(list_args)
     .await
     {
         Ok(list_result) if list_result.ok => {
@@ -326,11 +351,13 @@ async fn approve_latest_device() -> impl IntoResponse {
                 }));
             };
 
-            match run_openclaw_command(vec![
+            let mut approve_args = vec![
                 "devices".to_string(),
                 "approve".to_string(),
                 request.request_id.clone(),
-            ])
+            ];
+            approve_args.extend(internal_gateway_cli_args());
+            match run_openclaw_command(approve_args)
             .await
             {
                 Ok(result) if result.ok => Json(serde_json::json!({
@@ -364,11 +391,9 @@ async fn approve_latest_device() -> impl IntoResponse {
 }
 
 async fn list_devices() -> impl IntoResponse {
-    match run_openclaw_command(vec![
-        "devices".to_string(),
-        "list".to_string(),
-        "--json".to_string(),
-    ])
+    let mut args = vec!["devices".to_string(), "list".to_string(), "--json".to_string()];
+    args.extend(internal_gateway_cli_args());
+    match run_openclaw_command(args)
     .await
     {
         Ok(result) if result.ok => {
@@ -1459,5 +1484,26 @@ mod tests {
 
         let selected = select_pending_request_id(&output).expect("selected request");
         assert_eq!(selected.request_id, "newer");
+    }
+
+    #[test]
+    fn internal_gateway_cli_args_target_internal_loopback_gateway() {
+        unsafe {
+            env::set_var("GATEWAY_INTERNAL_PORT", "18790");
+            env::set_var("OPENCLAW_GATEWAY_TOKEN", "tok_test_12345678");
+            env::remove_var("OPENCLAW_CONFIG_PATH");
+        }
+
+        let args = internal_gateway_cli_args();
+
+        assert_eq!(
+            args,
+            vec![
+                "--url".to_string(),
+                "ws://127.0.0.1:18790".to_string(),
+                "--token".to_string(),
+                "tok_test_12345678".to_string()
+            ]
+        );
     }
 }

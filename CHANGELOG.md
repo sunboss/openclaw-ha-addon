@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.04.17.10
+
+- Force the HA add-on device approval actions to call `openclaw devices` against the internal loopback gateway (`ws://127.0.0.1:18790`) with the active runtime token instead of inheriting whatever external/public gateway port the current config file happens to contain
+- Reconcile runtime config drift while the add-on is running so wizard-written changes cannot leave `gateway.port` on the public wrapper port or strip loopback `gateway.trustedProxies`, which was breaking local-client detection behind the add-on proxy until the next restart
+- Harden gateway token file refresh so reconciling runtime config can safely recreate the token export directory before writing `gateway.token`
+
 ## 2026.04.17.9
 
 - Add workspace-template integrity checks in both the add-on supervisor and the final image build so packaging mistakes fail fast instead of surfacing later during `openclaw onboard`
