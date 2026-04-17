@@ -6,9 +6,9 @@ COPY crates ./crates
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git/db,sharing=locked \
     --mount=type=cache,target=/cargo-target,sharing=locked \
-    sh -lc 'cargo build --release --workspace --target-dir /cargo-target && \
-      mkdir -p /src/target/release && \
-      cp -a /cargo-target/release/. /src/target/release/'
+    cargo build --release --workspace --target-dir /cargo-target && \
+    mkdir -p /src/target/release && \
+    cp -a /cargo-target/release/. /src/target/release/
 
 FROM oven/bun:1.2.18 AS bun-bin
 

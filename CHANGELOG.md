@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.18.2
+
+- Fix the new Rust BuildKit cache step so it runs under Docker's default shell correctly on both architectures; the cache-mount optimization stays in place, but the command no longer wraps `cargo build` in an extra shell invocation that broke GHCR builds
+
 ## 2026.04.18.1
 
 - Add Docker BuildKit cache mounts for the Rust workspace so repeated image builds can reuse Cargo registry, git, and compiled target artifacts instead of rebuilding the add-on binaries from scratch on every push

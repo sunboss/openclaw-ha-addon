@@ -2,6 +2,7 @@
 
 ## 2026-04-18
 
+- Corrected the first Rust cache-mount Dockerfile attempt after GHCR showed both architectures failing immediately on the extra shell wrapper; the cache optimization now keeps the same Cargo target copy-back behavior but uses Docker's native command chaining so BuildKit can execute it portably
 - Measured the current HAOS runtime after the `2026.04.17.12` fixes: the add-on now returns `200` on the native gateway in about `123 ms`, returns `200` on the ingress endpoint in about `3 ms`, reaches first successful HTTP responses roughly `13 s` after a restart, and reports gateway `ready` in upstream logs after about `17.6 s`; steady-state memory on the test host is now about `503 MB` instead of the earlier crash-loop state above `700 MB`
 - Queried GHCR manifests directly to quantify image size without host Docker access: `2026.04.17.12-amd64` is about `430.33 MB` and `2026.04.17.12-arm64` is about `426.80 MB`, down from `438.29 MB` and `434.77 MB` on `2026.04.17.11`
 - Added Docker BuildKit cache mounts for Cargo registry, git, and compiled targets so repeated add-on image builds can reuse Rust dependencies and release artifacts instead of rebuilding the entire Rust workspace from zero every GitHub Actions run
