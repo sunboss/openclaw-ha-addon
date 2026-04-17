@@ -2,6 +2,9 @@
 
 ## 2026-04-18
 
+- Verified from HAOS logs that the current "startup slow" symptom was not a general container boot problem but an old-version gateway crash loop: the runtime kept trying to bind `127.0.0.1:18789`, colliding with `ingressd`, and then respawning roughly every 30 seconds; the add-on-side config reconciliation added in `2026.04.17.10` is the fix for that drifted internal-port state
+- Added GitHub Actions buildx GHA cache scopes so the heavy vendored-upstream Docker layers can be reused across pushes instead of rebuilding the whole pnpm workspace from zero on every run
+- Added a no-refresh status sync path to the Home Assistant entry page so operators get a 15-second background status refresh without a full page reload interrupting ongoing actions
 - Traced the HA page's `读取失败：返回格式无效` device-approval symptom back to the CLI following a drifted runtime `openclaw.json`: after onboarding, the config could keep `gateway.port=18789` and an empty `gateway.trustedProxies`, so `openclaw devices list --json` was trying the outer HTTPS wrapper instead of the internal loopback gateway and local-client detection behind `ingressd` stopped working
 - Fixed the HA UI device actions to call the official `openclaw devices` commands with explicit internal connection arguments (`--url ws://127.0.0.1:18790` plus the current token), making pending-device listing and approval independent from public-port drift in the runtime config
 - Added a supervisor-side runtime config reconciliation loop so post-onboarding config edits are pulled back to add-on-required gateway defaults, specifically the internal gateway port, loopback `trustedProxies`, and Control UI allowed origins, without requiring a manual add-on restart

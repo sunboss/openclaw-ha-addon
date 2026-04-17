@@ -43,6 +43,22 @@ struct SystemSnapshot {
     openclaw_uptime: String,
 }
 
+#[derive(Clone, Debug, serde::Serialize)]
+struct UiStatusPayload {
+    addon_version: String,
+    openclaw_version: String,
+    gateway_port: String,
+    gateway_pid: String,
+    openclaw_uptime: String,
+    model_primary: String,
+    model_secondary: String,
+    health_text: String,
+    health_sub: String,
+    health_label: String,
+    tone: String,
+    gateway_state: String,
+}
+
 impl PageConfig {
     fn from_env() -> Self {
         let runtime_config = load_runtime_config();
@@ -486,6 +502,20 @@ async fn index(State(state): State<AppState>) -> impl IntoResponse {
     render_shell(&config, &snapshot, health_ok)
 }
 
+async fn status_json(State(state): State<AppState>) -> impl IntoResponse {
+    let config = PageConfig::from_env();
+    let guard = state.cache.read().await;
+    let (snapshot, health_ok) = if let Some(cached) = guard.as_ref() {
+        let result = (cached.snapshot.clone(), cached.health_ok);
+        drop(guard);
+        result
+    } else {
+        drop(guard);
+        tokio::join!(collect_system_snapshot(), fetch_openclaw_health())
+    };
+    Json(build_status_payload(&config, &snapshot, health_ok))
+}
+
 #[tokio::main]
 async fn main() {
     let cache: Arc<RwLock<Option<CachedSnapshot>>> = Arc::new(RwLock::new(None));
@@ -504,6 +534,7 @@ async fn main() {
 
     let app = Router::new()
         .route("/", get(index))
+        .route("/status.json", get(status_json))
         .route("/open-gateway", get(open_gateway))
         .route("/assets/icon.png", get(brand_icon))
         .route("/action/devices-list", post(list_devices))
@@ -525,37 +556,36 @@ async fn main() {
     axum::serve(listener, app).await.expect("serve ui");
 }
 
-fn render_shell(
+fn build_status_payload(
     config: &PageConfig,
     snapshot: &SystemSnapshot,
     health_ok: Option<bool>,
-) -> Html<String> {
-    let gateway_token = js_string(&config.gateway_token);
+) -> UiStatusPayload {
     let gateway_pid = pid_value("openclaw-gateway");
     let (health_text, health_sub, tone, health_label) = match health_ok {
         Some(true) => (
-            "已就绪",
-            "OpenClaw Gateway 已通过健康检查，可直接进入控制台。",
-            "good",
-            "实时状态",
+            "已就绪".to_string(),
+            "OpenClaw Gateway 已通过健康检查，可直接进入控制台。".to_string(),
+            "good".to_string(),
+            "实时状态".to_string(),
         ),
         Some(false) => (
-            "异常",
-            "Gateway 当前未通过健康检查，建议先检查日志与设备授权。",
-            "danger",
-            "实时状态",
+            "异常".to_string(),
+            "Gateway 当前未通过健康检查，建议先检查日志与设备授权。".to_string(),
+            "danger".to_string(),
+            "实时状态".to_string(),
         ),
         None if gateway_pid != "-" => (
-            "等待确认",
-            "已检测到 Gateway 进程，正在等待健康结果回传。",
-            "warn",
-            "实时状态",
+            "等待确认".to_string(),
+            "已检测到 Gateway 进程，正在等待健康结果回传。".to_string(),
+            "warn".to_string(),
+            "实时状态".to_string(),
         ),
         None => (
-            "离线",
-            "当前未检测到 Gateway 进程，入口按钮将继续保留。",
-            "danger",
-            "实时状态",
+            "离线".to_string(),
+            "当前未检测到 Gateway 进程，入口按钮将继续保留。".to_string(),
+            "danger".to_string(),
+            "实时状态".to_string(),
         ),
     };
     let (model_primary, model_secondary) =
@@ -569,6 +599,34 @@ fn render_shell(
         } else {
             (config.agent_model.clone(), "当前模型标识".to_string())
         };
+
+    UiStatusPayload {
+        addon_version: config.addon_version.clone(),
+        openclaw_version: config.openclaw_version.clone(),
+        gateway_port: config.gateway_port.clone(),
+        gateway_pid: gateway_pid.clone(),
+        openclaw_uptime: snapshot.openclaw_uptime.clone(),
+        model_primary,
+        model_secondary,
+        health_text,
+        health_sub,
+        health_label,
+        tone,
+        gateway_state: if gateway_pid != "-" {
+            "在线".to_string()
+        } else {
+            "离线".to_string()
+        },
+    }
+}
+
+fn render_shell(
+    config: &PageConfig,
+    snapshot: &SystemSnapshot,
+    health_ok: Option<bool>,
+) -> Html<String> {
+    let gateway_token = js_string(&config.gateway_token);
+    let status = build_status_payload(config, snapshot, health_ok);
     let token_masked = if config.gateway_token.is_empty() {
         "未配置".to_string()
     } else {
@@ -1127,19 +1185,19 @@ pre {{
         <div class="hero-side-grid">
           <div>
             <span>Add-on</span>
-            <strong>{addon_version}</strong>
+            <strong id="ocAddonVersion">{addon_version}</strong>
           </div>
           <div>
             <span>Runtime</span>
-            <strong>{openclaw_version}</strong>
+            <strong id="ocRuntimeVersionHero">{openclaw_version}</strong>
           </div>
           <div>
             <span>Gateway PID</span>
-            <strong>{gateway_pid}</strong>
+            <strong id="ocGatewayPidHero">{gateway_pid}</strong>
           </div>
           <div>
             <span>Uptime</span>
-            <strong>{openclaw_uptime}</strong>
+            <strong id="ocUptimeHero">{openclaw_uptime}</strong>
           </div>
         </div>
         <p class="hero-note">外部默认入口是 <code>https://主机:{gateway_port}</code>。这条入口优先使用原生 Gateway，避免再走 Home Assistant HTTP Ingress 那条官方并不推荐的链路。</p>
@@ -1151,18 +1209,18 @@ pre {{
     <article class="metric-card model">
       <div>
         <div class="metric-label">当前模型</div>
-        <div class="metric-value">{model_primary}</div>
-        <div class="metric-sub">{model_secondary}</div>
+        <div class="metric-value" id="ocModelPrimary">{model_primary}</div>
+        <div class="metric-sub" id="ocModelSecondary">{model_secondary}</div>
       </div>
       <div class="micro-copy">模型信息直接从运行配置读取，不再手写展示值。</div>
     </article>
-    <article class="metric-card status status-{tone}">
+    <article class="metric-card status status-{tone}" id="ocHealthCard">
       <div>
-        <div class="metric-label">{health_label}</div>
-        <div class="metric-value">{health_text}</div>
-        <div class="metric-sub">{health_sub}</div>
+        <div class="metric-label" id="ocHealthLabel">{health_label}</div>
+        <div class="metric-value" id="ocHealthText">{health_text}</div>
+        <div class="metric-sub" id="ocHealthSub">{health_sub}</div>
       </div>
-      <div class="micro-copy">OpenClaw Gateway {gateway_state}，当前进程 PID {gateway_pid}。</div>
+      <div class="micro-copy" id="ocGatewayStateCopy">OpenClaw Gateway {gateway_state}，当前进程 PID {gateway_pid}。</div>
     </article>
     <article class="metric-card access">
       <div>
@@ -1177,7 +1235,7 @@ pre {{
   <section class="support-strip">
     <article class="support-card">
       <div class="metric-label">OpenClaw Runtime</div>
-      <strong>{openclaw_version}</strong>
+      <strong id="ocRuntimeVersionCard">{openclaw_version}</strong>
     </article>
     <article class="support-card">
       <div class="metric-label">Gateway 访问</div>
@@ -1185,7 +1243,11 @@ pre {{
     </article>
     <article class="support-card">
       <div class="metric-label">当前运行时长</div>
-      <strong>{openclaw_uptime}</strong>
+      <strong id="ocUptimeCard">{openclaw_uptime}</strong>
+    </article>
+    <article class="support-card">
+      <div class="metric-label">页面状态同步</div>
+      <strong id="ocAutoRefreshStatus">页面会每 15 秒后台同步一次状态，不整页重载。</strong>
     </article>
   </section>
 
@@ -1244,10 +1306,47 @@ pre {{
 </div>
 <script>
 const OC_GATEWAY_TOKEN = {gateway_token};
+const OC_AUTO_REFRESH_MS = 15000;
 
 function appendTokenHash(url) {{
   if (!OC_GATEWAY_TOKEN || !String(OC_GATEWAY_TOKEN).trim()) return url;
   return String(url).replace(/#.*$/, "") + "#token=" + encodeURIComponent(String(OC_GATEWAY_TOKEN).trim());
+}}
+
+function ocSetText(id, value) {{
+  const el = document.getElementById(id);
+  if (el) el.textContent = value;
+}}
+
+function ocApplyStatus(data) {{
+  if (!data) return;
+  ocSetText("ocAddonVersion", data.addon_version || "unknown");
+  ocSetText("ocRuntimeVersionHero", data.openclaw_version || "unknown");
+  ocSetText("ocRuntimeVersionCard", data.openclaw_version || "unknown");
+  ocSetText("ocGatewayPidHero", data.gateway_pid || "-");
+  ocSetText("ocUptimeHero", data.openclaw_uptime || "-");
+  ocSetText("ocUptimeCard", data.openclaw_uptime || "-");
+  ocSetText("ocModelPrimary", data.model_primary || "未配置");
+  ocSetText("ocModelSecondary", data.model_secondary || "请在 OpenClaw 配置中设置模型");
+  ocSetText("ocHealthLabel", data.health_label || "实时状态");
+  ocSetText("ocHealthText", data.health_text || "等待确认");
+  ocSetText("ocHealthSub", data.health_sub || "正在同步最新状态。");
+  ocSetText(
+    "ocGatewayStateCopy",
+    "OpenClaw Gateway " + (data.gateway_state || "未知") + "，当前进程 PID " + (data.gateway_pid || "-") + "。"
+  );
+  const card = document.getElementById("ocHealthCard");
+  if (card) card.className = "metric-card status status-" + (data.tone || "warn");
+}}
+
+async function ocRefreshStatus() {{
+  if (document.visibilityState === "hidden") return;
+  try {{
+    const resp = await fetch("./status.json", {{ cache: "no-store" }});
+    if (!resp.ok) return;
+    const data = await resp.json();
+    ocApplyStatus(data);
+  }} catch (_) {{}}
 }}
 
 async function ocPostJson(url, payload) {{
@@ -1275,6 +1374,8 @@ window.ocApproveLatestDevice = async function(statusId) {{
     ocSetFormStatus(statusId, data.message || "已完成", !!data.ok);
   }} catch (error) {{
     ocSetFormStatus(statusId, "执行失败：" + (error.message || error), false);
+  }} finally {{
+    ocRefreshStatus();
   }}
 }};
 
@@ -1289,11 +1390,15 @@ window.ocListDevices = async function(statusId, outputId) {{
   }} catch (error) {{
     ocSetFormStatus(statusId, "读取失败：" + (error.message || error), false);
     if (output) output.textContent = "读取失败：" + (error.message || error);
+  }} finally {{
+    ocRefreshStatus();
   }}
 }};
 
 (function() {{
   const t = OC_GATEWAY_TOKEN || "";
+  window.setTimeout(ocRefreshStatus, 4000);
+  window.setInterval(ocRefreshStatus, OC_AUTO_REFRESH_MS);
   window.ocToggleToken = function() {{
     const v = document.getElementById("ocTokenVal");
     const b = document.getElementById("ocTokenToggleBtn");
@@ -1339,18 +1444,14 @@ window.ocListDevices = async function(statusId, outputId) {{
         addon_version = html_escape(&config.addon_version),
         gateway_port = html_escape(&config.gateway_port),
         gateway_token = gateway_token,
-        tone = tone,
-        health_label = health_label,
-        health_text = health_text,
-        health_sub = health_sub,
-        model_primary = html_escape(&model_primary),
-        model_secondary = html_escape(&model_secondary),
-        gateway_state = if gateway_pid != "-" {
-            "在线"
-        } else {
-            "离线"
-        },
-        gateway_pid = html_escape(&gateway_pid),
+        tone = html_escape(&status.tone),
+        health_label = html_escape(&status.health_label),
+        health_text = html_escape(&status.health_text),
+        health_sub = html_escape(&status.health_sub),
+        model_primary = html_escape(&status.model_primary),
+        model_secondary = html_escape(&status.model_secondary),
+        gateway_state = html_escape(&status.gateway_state),
+        gateway_pid = html_escape(&status.gateway_pid),
         token_masked = html_escape(&token_masked),
         shell_block = shell_block,
         openclaw_version = html_escape(&config.openclaw_version),
@@ -1432,6 +1533,7 @@ mod tests {
         assert!(html.contains("列出待批准设备"));
         assert!(html.contains("确认最新授权"));
         assert!(html.contains("维护 Shell"));
+        assert!(html.contains("后台同步一次状态"));
     }
 
     #[test]

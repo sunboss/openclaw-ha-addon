@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.17.11
+
+- Add GitHub Actions buildx GHA cache scopes for both `amd64` and `arm64` image jobs so follow-up builds can reuse prior Docker layers instead of rebuilding the full vendored upstream workspace from scratch every push
+- Add a no-refresh status sync path on the Home Assistant entry page so the browser polls `status.json` every 15 seconds and updates the key runtime fields in place instead of reloading the whole page
+
 ## 2026.04.17.10
 
 - Force the HA add-on device approval actions to call `openclaw devices` against the internal loopback gateway (`ws://127.0.0.1:18790`) with the active runtime token instead of inheriting whatever external/public gateway port the current config file happens to contain
