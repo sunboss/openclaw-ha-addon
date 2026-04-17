@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.18.1
+
+- Add Docker BuildKit cache mounts for the Rust workspace so repeated image builds can reuse Cargo registry, git, and compiled target artifacts instead of rebuilding the add-on binaries from scratch on every push
+- Stop downloading Bun with a retry loop during every upstream image build; the Dockerfile now copies a fixed Bun binary from the official `oven/bun` builder image and keeps `pnpm install` on `--prefer-offline` to reduce repeated network/setup cost
+
 ## 2026.04.17.12
 
 - Stop building the upstream QA Lab UI during add-on image builds and stop copying the full upstream `docs/` and `qa/` trees into the final runtime image; the add-on now keeps only the official packaged `docs/reference/templates` set that OpenClaw runtime bootstrapping actually requires

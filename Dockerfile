@@ -3,26 +3,22 @@ FROM rust:1.94-bookworm AS rust-builder
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
-RUN cargo build --release --workspace
+RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,target=/usr/local/cargo/git/db,sharing=locked \
+    --mount=type=cache,target=/cargo-target,sharing=locked \
+    sh -lc 'cargo build --release --workspace --target-dir /cargo-target && \
+      mkdir -p /src/target/release && \
+      cp -a /cargo-target/release/. /src/target/release/'
+
+FROM oven/bun:1.2.18 AS bun-bin
 
 FROM node:24-bookworm AS openclaw-builder
-
 ARG OPENCLAW_VERSION=2026.4.15
 ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.15
 
-RUN set -eux; \
-    for attempt in 1 2 3 4 5; do \
-      if curl --retry 5 --retry-all-errors --retry-delay 2 -fsSL https://bun.sh/install | bash; then \
-        break; \
-      fi; \
-      if [ "$attempt" -eq 5 ]; then \
-        exit 1; \
-      fi; \
-      sleep $((attempt * 2)); \
-    done
+COPY --from=bun-bin /usr/local/bin/bun /usr/local/bin/bun
 
-ENV PATH="/root/.bun/bin:${PATH}" \
-    OPENCLAW_PREFER_PNPM=1
+ENV OPENCLAW_PREFER_PNPM=1
 
 RUN corepack enable
 
@@ -35,7 +31,7 @@ COPY ${OPENCLAW_SOURCE_DIR}/openclaw.mjs ./openclaw.mjs
 RUN test -f package.json && test -f pnpm-lock.yaml && test -f openclaw.mjs
 
 RUN --mount=type=cache,id=openclaw-pnpm-store,target=/root/.local/share/pnpm/store,sharing=locked \
-    NODE_OPTIONS=--max-old-space-size=2048 pnpm install --frozen-lockfile
+    NODE_OPTIONS=--max-old-space-size=2048 pnpm install --prefer-offline --frozen-lockfile
 
 RUN pnpm canvas:a2ui:bundle || \
     (echo "A2UI bundle: creating stub (non-fatal)" && \
