@@ -109,6 +109,14 @@ COPY --from=openclaw-builder /opt/openclaw/skills ./skills
 COPY --from=openclaw-builder /opt/openclaw/docs ./docs
 COPY --from=openclaw-builder /opt/openclaw/qa ./qa
 
+RUN test -f /opt/openclaw/docs/reference/templates/AGENTS.md && \
+    test -f /opt/openclaw/docs/reference/templates/SOUL.md && \
+    test -f /opt/openclaw/docs/reference/templates/TOOLS.md && \
+    test -f /opt/openclaw/docs/reference/templates/IDENTITY.md && \
+    test -f /opt/openclaw/docs/reference/templates/USER.md && \
+    test -f /opt/openclaw/docs/reference/templates/HEARTBEAT.md && \
+    test -f /opt/openclaw/docs/reference/templates/BOOTSTRAP.md
+
 RUN ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw && \
     chmod 755 /opt/openclaw/openclaw.mjs
 

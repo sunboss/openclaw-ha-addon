@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.17.9
+
+- Add workspace-template integrity checks in both the add-on supervisor and the final image build so packaging mistakes around `docs/reference/templates/*.md` fail fast instead of surfacing later during `openclaw onboard`
+
 ## 2026.04.17.8
 
 - Stop auto-running `openclaw doctor --fix` on first boot when `run_doctor_on_start` is left at its default `false`, so low-memory HAOS hosts do not trigger a startup doctor OOM loop while onboarding

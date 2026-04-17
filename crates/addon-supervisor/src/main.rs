@@ -153,6 +153,11 @@ fn haos_entry(args: HaosEntryArgs) -> ExitCode {
         return ExitCode::from(1);
     }
 
+    if let Err(err) = verify_packaged_workspace_templates(&args.gateway_bin) {
+        eprintln!("addon-supervisor: {err}");
+        return ExitCode::from(1);
+    }
+
     if let Err(err) = bootstrap_openclaw_config(&args, &settings) {
         eprintln!("addon-supervisor: failed to bootstrap OpenClaw config: {err}");
         return ExitCode::from(1);
@@ -316,6 +321,15 @@ fn infer_default_model_from_auth_profiles(args: &HaosEntryArgs) -> Option<String
 }
 
 const HAOS_NODE_MAX_OLD_SPACE_MB: usize = 512;
+const REQUIRED_WORKSPACE_TEMPLATES: [&str; 7] = [
+    "AGENTS.md",
+    "SOUL.md",
+    "TOOLS.md",
+    "IDENTITY.md",
+    "USER.md",
+    "HEARTBEAT.md",
+    "BOOTSTRAP.md",
+];
 
 fn runtime_node_options(existing: Option<&str>) -> String {
     let max_old_space_flag = "--max-old-space-size=";
@@ -328,6 +342,84 @@ fn runtime_node_options(existing: Option<&str>) -> String {
     } else {
         format!("{existing} {max_old_space_flag}{HAOS_NODE_MAX_OLD_SPACE_MB}")
     }
+}
+
+fn verify_packaged_workspace_templates(gateway_bin: &str) -> Result<(), String> {
+    let template_dir = resolve_workspace_template_dir(gateway_bin);
+    let missing = REQUIRED_WORKSPACE_TEMPLATES
+        .iter()
+        .map(|name| (name, template_dir.join(name)))
+        .filter(|(_, path)| !path.is_file())
+        .map(|(name, path)| format!("{name} ({})", path.display()))
+        .collect::<Vec<_>>();
+
+    if missing.is_empty() {
+        Ok(())
+    } else {
+        Err(format!(
+            "missing packaged OpenClaw workspace templates under {}: {}",
+            template_dir.display(),
+            missing.join(", ")
+        ))
+    }
+}
+
+fn resolve_workspace_template_dir(gateway_bin: &str) -> PathBuf {
+    resolve_gateway_package_root(gateway_bin)
+        .map(|root| root.join("docs").join("reference").join("templates"))
+        .unwrap_or_else(|| {
+            PathBuf::from("/opt/openclaw")
+                .join("docs")
+                .join("reference")
+                .join("templates")
+        })
+}
+
+fn resolve_gateway_package_root(gateway_bin: &str) -> Option<PathBuf> {
+    let executable = resolve_program_path(gateway_bin)?;
+    let start = if executable.is_dir() {
+        executable
+    } else {
+        executable.parent()?.to_path_buf()
+    };
+    find_openclaw_package_root(&start)
+}
+
+fn resolve_program_path(program: &str) -> Option<PathBuf> {
+    let candidate = Path::new(program);
+    if candidate.components().count() > 1 || candidate.is_absolute() {
+        return fs::canonicalize(candidate)
+            .ok()
+            .or_else(|| candidate.exists().then(|| candidate.to_path_buf()));
+    }
+
+    let path = env::var_os("PATH")?;
+    env::split_paths(&path)
+        .map(|dir| dir.join(program))
+        .find_map(|candidate| fs::canonicalize(&candidate).ok().or_else(|| candidate.exists().then_some(candidate)))
+}
+
+fn find_openclaw_package_root(start: &Path) -> Option<PathBuf> {
+    let mut current = Some(start);
+    for _ in 0..12 {
+        let dir = current?;
+        if is_openclaw_package_root(dir) {
+            return Some(dir.to_path_buf());
+        }
+        current = dir.parent();
+    }
+    None
+}
+
+fn is_openclaw_package_root(dir: &Path) -> bool {
+    let package_json = dir.join("package.json");
+    let Some(contents) = fs::read_to_string(package_json).ok() else {
+        return false;
+    };
+    serde_json::from_str::<serde_json::Value>(&contents)
+        .ok()
+        .and_then(|value| value.get("name").and_then(|value| value.as_str()).map(str::to_owned))
+        .is_some_and(|name| name == "openclaw")
 }
 
 fn prepare_directories(args: &HaosEntryArgs) -> std::io::Result<()> {
@@ -1622,6 +1714,42 @@ mod tests {
             runtime_node_options(Some("--max-old-space-size=768 --trace-warnings")),
             "--max-old-space-size=768 --trace-warnings"
         );
+    }
+
+    #[test]
+    fn resolve_workspace_template_dir_uses_gateway_package_root() {
+        let unique = format!("openclaw-template-root-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let docs_dir = root.join("docs").join("reference").join("templates");
+        fs::create_dir_all(&docs_dir).expect("create template dir");
+        fs::write(root.join("package.json"), r#"{"name":"openclaw"}"#).expect("write package");
+        fs::write(root.join("openclaw"), "#!/usr/bin/env node\n").expect("write binary");
+
+        let resolved = resolve_workspace_template_dir(&root.join("openclaw").display().to_string());
+        let expected = fs::canonicalize(&docs_dir).expect("canonical template dir");
+
+        assert_eq!(resolved, expected);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn verify_packaged_workspace_templates_reports_missing_files() {
+        let unique = format!("openclaw-template-missing-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let docs_dir = root.join("docs").join("reference").join("templates");
+        fs::create_dir_all(&docs_dir).expect("create template dir");
+        fs::write(root.join("package.json"), r#"{"name":"openclaw"}"#).expect("write package");
+        fs::write(root.join("openclaw"), "#!/usr/bin/env node\n").expect("write binary");
+        fs::write(docs_dir.join("AGENTS.md"), "agents").expect("write template");
+
+        let err = verify_packaged_workspace_templates(&root.join("openclaw").display().to_string())
+            .expect_err("missing templates should fail");
+
+        assert!(err.contains("IDENTITY.md"));
+        assert!(err.contains(&docs_dir.display().to_string()));
+
+        let _ = fs::remove_dir_all(root);
     }
 
     #[test]
