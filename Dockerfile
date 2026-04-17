@@ -28,6 +28,9 @@ RUN corepack enable
 
 WORKDIR /opt/openclaw
 COPY ${OPENCLAW_SOURCE_DIR}/ ./
+COPY ${OPENCLAW_SOURCE_DIR}/package.json ./package.json
+COPY ${OPENCLAW_SOURCE_DIR}/pnpm-lock.yaml ./pnpm-lock.yaml
+COPY ${OPENCLAW_SOURCE_DIR}/openclaw.mjs ./openclaw.mjs
 
 RUN test -f package.json && test -f pnpm-lock.yaml && test -f openclaw.mjs
 

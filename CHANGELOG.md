@@ -4,6 +4,7 @@
 
 - Align the add-on configuration surface with the official token-based Gateway path by removing the exposed `gateway_auth_mode` option and always writing `gateway.auth.mode = "token"`
 - Change `enable_openai_api` to default to `false`, matching upstream `gateway.http.endpoints.chatCompletions.enabled`
+- Harden the upstream source Docker copy step by explicitly copying the root `package.json`, `pnpm-lock.yaml`, and `openclaw.mjs` files after the vendored source tree copy so GHCR buildx sees the official CLI entry files reliably on both architectures
 
 ## 2026.04.17.5
 
