@@ -44,7 +44,7 @@ RUN pnpm canvas:a2ui:bundle || \
      echo "stub" > src/canvas-host/a2ui/.bundle.hash && \
      rm -rf vendor/a2ui apps/shared/OpenClawKit/Tools/CanvasA2UI)
 
-RUN pnpm build:docker && pnpm ui:build && pnpm qa:lab:build
+RUN pnpm build:docker && pnpm ui:build
 
 RUN CI=true NPM_CONFIG_FROZEN_LOCKFILE=false pnpm prune --prod && \
     node scripts/postinstall-bundled-plugins.mjs && \
@@ -107,8 +107,6 @@ COPY --from=openclaw-builder /opt/openclaw/package.json ./package.json
 COPY --from=openclaw-builder /opt/openclaw/openclaw.mjs ./openclaw.mjs
 COPY --from=openclaw-builder /opt/openclaw/extensions ./extensions
 COPY --from=openclaw-builder /opt/openclaw/skills ./skills
-COPY --from=openclaw-builder /opt/openclaw/docs ./docs
-COPY --from=openclaw-builder /opt/openclaw/qa ./qa
 COPY ${OPENCLAW_SOURCE_DIR}/docs/reference/templates ./docs/reference/templates
 
 RUN test -f /opt/openclaw/docs/reference/templates/AGENTS.md && \

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.17.12
+
+- Stop building the upstream QA Lab UI during add-on image builds and stop copying the full upstream `docs/` and `qa/` trees into the final runtime image; the add-on now keeps only the official packaged `docs/reference/templates` set that OpenClaw runtime bootstrapping actually requires
+- Tighten `.dockerignore` so the Docker build context only ships the Rust workspace, add-on config, Dockerfile, and vendored upstream source instead of the whole repository checkout
+
 ## 2026.04.17.11
 
 - Add GitHub Actions buildx GHA cache scopes for both `amd64` and `arm64` image jobs so follow-up builds can reuse prior Docker layers instead of rebuilding the full vendored upstream workspace from scratch every push

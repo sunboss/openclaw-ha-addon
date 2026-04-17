@@ -2,6 +2,8 @@
 
 ## 2026-04-18
 
+- Reduced the add-on build/runtime payload further by removing `pnpm qa:lab:build` from the image build, dropping the full upstream `docs/` and `qa/` trees from the final runtime image, and keeping only `docs/reference/templates`, which matches the official packaged runtime surface that workspace bootstrapping actually needs
+- Tightened `.dockerignore` to send only the Rust workspace, add-on config files, Dockerfile, and vendored upstream source into the Docker build context; this trims unnecessary context upload overhead before BuildKit even starts the expensive upstream Node build
 - Verified from HAOS logs that the current "startup slow" symptom was not a general container boot problem but an old-version gateway crash loop: the runtime kept trying to bind `127.0.0.1:18789`, colliding with `ingressd`, and then respawning roughly every 30 seconds; the add-on-side config reconciliation added in `2026.04.17.10` is the fix for that drifted internal-port state
 - Added GitHub Actions buildx GHA cache scopes so the heavy vendored-upstream Docker layers can be reused across pushes instead of rebuilding the whole pnpm workspace from zero on every run
 - Added a no-refresh status sync path to the Home Assistant entry page so operators get a 15-second background status refresh without a full page reload interrupting ongoing actions
