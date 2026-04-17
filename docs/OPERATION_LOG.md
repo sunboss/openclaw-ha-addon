@@ -1,5 +1,13 @@
 # Operation Log
 
+## 2026-04-18
+
+- Vendored the exact upstream `openclaw/openclaw` `v2026.4.15` source tree into `upstream/openclaw-v2026.4.15` and removed the temporary exploratory clone so the add-on repository now carries the full upstream source needed for reviewable builds
+- Switched the add-on image build back from `npm pack openclaw@...` to building the bundled upstream source directly with the upstream `pnpm` workspace flow before assembling the Home Assistant wrapper image
+- Removed the exposed `gateway_auth_mode` add-on option and aligned the wrapper to the supported Home Assistant deployment stance here: token-based gateway auth only
+- Changed the add-on `enable_openai_api` default back to `false` so the generated `gateway.http.endpoints.chatCompletions.enabled` setting matches the current upstream default instead of enabling the endpoint by default
+- Updated repository docs, translations, ignore rules, and maintainer notes so the supported configuration surface and build story match the new upstream-vendored token-only baseline
+
 ## 2026-04-17
 
 - Replaced the failing in-image upstream source build with a direct install path from the official published `openclaw@2026.4.14` npm tarball after confirming that the tarball itself installs successfully in a clean local npm prefix

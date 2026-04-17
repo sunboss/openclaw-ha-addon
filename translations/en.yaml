@@ -26,9 +26,6 @@ configuration:
   gateway_public_url:
     name: Gateway Public URL
     description: Optional fixed public URL used by the "Open Gateway" button instead of auto-detecting the current host.
-  gateway_auth_mode:
-    name: Gateway Auth Mode
-    description: Official gateway authentication mode written into the runtime configuration. `token` is the recommended add-on default.
   homeassistant_token:
     name: Home Assistant Token
     description: Long-lived Home Assistant token used when auto-configuring the Home Assistant MCP endpoint.
@@ -43,7 +40,7 @@ configuration:
     description: Extra Control UI origins, separated by commas, added on top of the add-on defaults.
   enable_openai_api:
     name: Enable Chat Completions API
-    description: Enable the OpenAI-compatible chat completions HTTP endpoint in the gateway.
+    description: Enable the OpenAI-compatible chat completions HTTP endpoint in the gateway. Official upstream default is disabled.
   auto_configure_mcp:
     name: Auto Configure Home Assistant MCP
     description: Register the Home Assistant MCP endpoint at startup when a Home Assistant token is present.

@@ -49,7 +49,6 @@ Only expose configuration fields that are understandable and actually wired into
 - `gateway_bind_mode`
 - `gateway_port`
 - `gateway_public_url`
-- `gateway_auth_mode`
 - `homeassistant_token`
 - `http_proxy`
 - `gateway_trusted_proxies`

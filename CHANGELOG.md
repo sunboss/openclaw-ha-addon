@@ -1,5 +1,18 @@
 # Changelog
 
+## 2026.04.17.6
+
+- Align the add-on configuration surface with the official token-based Gateway path by removing the exposed `gateway_auth_mode` option and always writing `gateway.auth.mode = "token"`
+- Change `enable_openai_api` to default to `false`, matching upstream `gateway.http.endpoints.chatCompletions.enabled`
+
+## 2026.04.17.5
+
+- Vendor the exact official `openclaw/openclaw` `v2026.4.15` source tree under `upstream/openclaw-v2026.4.15` and switch the add-on image to build the upstream runtime from source instead of installing the published npm tarball
+
+## 2026.04.17.4
+
+- Upgrade the bundled upstream runtime from the official published `openclaw@2026.4.14` package to `openclaw@2026.4.15` while keeping the Home Assistant wrapper behavior unchanged
+
 ## 2026.04.17.3
 
 - Replace the failing in-image upstream source build with the official published `openclaw@2026.4.14` npm tarball path, so GHCR builds no longer depend on compiling the full upstream workspace and its optional native development dependencies

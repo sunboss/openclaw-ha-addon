@@ -3,3 +3,6 @@ target
 .github
 README.md
 MIGRATION.md
+_upstream_openclaw
+upstream/*.zip
+**/.git

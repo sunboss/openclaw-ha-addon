@@ -85,7 +85,6 @@ struct AddonOptions {
     gateway_bind_mode: Option<String>,
     gateway_port: Option<u16>,
     gateway_public_url: Option<String>,
-    gateway_auth_mode: Option<String>,
     homeassistant_token: Option<String>,
     http_proxy: Option<String>,
     gateway_trusted_proxies: Option<String>,
@@ -106,7 +105,6 @@ struct RuntimeSettings {
     gateway_bind_mode: String,
     gateway_port: u16,
     gateway_public_url: String,
-    gateway_auth_mode: String,
     homeassistant_token: String,
     http_proxy: String,
     gateway_trusted_proxies: Vec<String>,
@@ -221,17 +219,13 @@ fn runtime_settings(options: &AddonOptions) -> RuntimeSettings {
             .unwrap_or_else(|| "loopback".to_string()),
         gateway_port: options.gateway_port.unwrap_or(18789),
         gateway_public_url: options.gateway_public_url.clone().unwrap_or_default(),
-        gateway_auth_mode: options
-            .gateway_auth_mode
-            .clone()
-            .unwrap_or_else(|| "token".to_string()),
         homeassistant_token: options.homeassistant_token.clone().unwrap_or_default(),
         http_proxy: options.http_proxy.clone().unwrap_or_default(),
         gateway_trusted_proxies: split_csv_like(options.gateway_trusted_proxies.as_deref()),
         gateway_additional_allowed_origins: split_csv_like(
             options.gateway_additional_allowed_origins.as_deref(),
         ),
-        enable_openai_api: options.enable_openai_api.unwrap_or(true),
+        enable_openai_api: options.enable_openai_api.unwrap_or(false),
         auto_configure_mcp: options.auto_configure_mcp.unwrap_or(true),
         run_doctor_on_start: options.run_doctor_on_start.unwrap_or(false),
     }
@@ -415,7 +409,7 @@ fn bootstrap_openclaw_config(
                 "http": {
                     "endpoints": {
                         "chatCompletions": {
-                            "enabled": true
+                            "enabled": false
                         }
                     }
                 }
@@ -553,7 +547,7 @@ fn ensure_gateway_defaults(
     let auth = auth.as_object_mut().expect("auth object");
     auth.insert(
         "mode".to_string(),
-        serde_json::Value::String(settings.gateway_auth_mode.clone()),
+        serde_json::Value::String("token".to_string()),
     );
     if !matches!(auth.get("token"), Some(value) if value.is_string()) {
         auth.insert(
@@ -1555,12 +1549,11 @@ mod tests {
             gateway_bind_mode: "loopback".to_string(),
             gateway_port: 18789,
             gateway_public_url: String::new(),
-            gateway_auth_mode: "token".to_string(),
             homeassistant_token: "token".to_string(),
             http_proxy: String::new(),
             gateway_trusted_proxies: Vec::new(),
             gateway_additional_allowed_origins: Vec::new(),
-            enable_openai_api: true,
+            enable_openai_api: false,
             auto_configure_mcp: true,
             run_doctor_on_start: false,
         }
@@ -1993,7 +1986,7 @@ mod tests {
         );
         assert_eq!(
             config["gateway"]["http"]["endpoints"]["chatCompletions"]["enabled"],
-            true
+            false
         );
     }
 

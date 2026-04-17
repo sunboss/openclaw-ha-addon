@@ -4,3 +4,5 @@
 .vscode/
 preview-*.html
 docs/_scratch/
+_upstream_openclaw/
+upstream/*.zip

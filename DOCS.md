@@ -27,6 +27,18 @@ flowchart LR
     Supervisor --> Shell
 ```
 
+### Upstream source policy
+
+The add-on now vendors the exact upstream `openclaw/openclaw` `v2026.4.15`
+source tree under `upstream/openclaw-v2026.4.15`.
+
+Build rule:
+
+- the bundled OpenClaw runtime must be built from that vendored upstream source
+- Home Assistant-specific behavior lives in this repository's Rust wrapper crates
+- upstream source should stay unmodified unless a change is explicitly tracked as
+  an add-on integration patch
+
 ### Why HTTPS is the preferred path
 
 Official OpenClaw Control UI expects a secure browser context for remote access.

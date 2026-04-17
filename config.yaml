@@ -1,5 +1,5 @@
 name: OpenClaw HA Add-on
-version: "2026.04.17.3"
+version: "2026.04.17.6"
 slug: openclaw_ha_addon
 description: Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints.
 url: https://github.com/sunboss/openclaw-ha-addon
@@ -29,12 +29,11 @@ options:
   gateway_bind_mode: "loopback"
   gateway_port: 18789
   gateway_public_url: ""
-  gateway_auth_mode: "token"
   homeassistant_token: ""
   http_proxy: ""
   gateway_trusted_proxies: ""
   gateway_additional_allowed_origins: ""
-  enable_openai_api: true
+  enable_openai_api: false
   auto_configure_mcp: true
   run_doctor_on_start: false
 
@@ -48,7 +47,6 @@ schema:
   gateway_bind_mode: str?
   gateway_port: port?
   gateway_public_url: str?
-  gateway_auth_mode: str?
   homeassistant_token: password?
   http_proxy: str?
   gateway_trusted_proxies: str?

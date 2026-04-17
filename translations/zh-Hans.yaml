@@ -26,9 +26,6 @@ configuration:
   gateway_public_url:
     name: Gateway 公网地址
     description: 可选固定地址。填写后，“打开网关”按钮会优先跳到这里，而不是自动根据当前主机推断。
-  gateway_auth_mode:
-    name: Gateway 认证方式
-    description: 写入官方运行时配置的 gateway.auth.mode。当前 add-on 推荐保持 token。
   homeassistant_token:
     name: Home Assistant Token
     description: 用于自动配置 Home Assistant MCP 的长期令牌。
@@ -43,7 +40,7 @@ configuration:
     description: 额外允许的 Control UI 来源，使用英文逗号分隔，并追加到 add-on 默认来源集合。
   enable_openai_api:
     name: 启用 Chat Completions API
-    description: 打开网关里的 OpenAI 兼容 chat completions HTTP 端点。
+    description: 打开网关里的 OpenAI 兼容 chat completions HTTP 端点。官方默认值是关闭。
   auto_configure_mcp:
     name: 自动配置 Home Assistant MCP
     description: 当提供了 Home Assistant Token 时，启动时自动注册 Home Assistant MCP 端点。

@@ -57,7 +57,6 @@ The Home Assistant configuration page only exposes fields that are currently wir
 - `gateway_bind_mode`
 - `gateway_port`
 - `gateway_public_url`
-- `gateway_auth_mode`
 - `homeassistant_token`
 - `http_proxy`
 - `gateway_trusted_proxies`
@@ -115,7 +114,6 @@ Home Assistant 配置页当前只暴露已经接入运行时的字段：
 - `gateway_bind_mode`
 - `gateway_port`
 - `gateway_public_url`
-- `gateway_auth_mode`
 - `homeassistant_token`
 - `http_proxy`
 - `gateway_trusted_proxies`
