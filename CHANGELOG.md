@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.17.7
+
+- Add a low-memory HAOS runtime guard by exporting `NODE_OPTIONS=--max-old-space-size=512` from the add-on supervisor unless the environment already sets a heap cap, so `openclaw onboard`, startup doctor, and other CLI flows stop getting OOM-killed on 2 GB Home Assistant hosts
+
 ## 2026.04.17.6
 
 - Align the add-on configuration surface with the official token-based Gateway path by removing the exposed `gateway_auth_mode` option and always writing `gateway.auth.mode = "token"`

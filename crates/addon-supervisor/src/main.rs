@@ -315,6 +315,21 @@ fn infer_default_model_from_auth_profiles(args: &HaosEntryArgs) -> Option<String
     }
 }
 
+const HAOS_NODE_MAX_OLD_SPACE_MB: usize = 512;
+
+fn runtime_node_options(existing: Option<&str>) -> String {
+    let max_old_space_flag = "--max-old-space-size=";
+    let existing = existing.unwrap_or("").trim();
+
+    if existing.contains(max_old_space_flag) {
+        existing.to_string()
+    } else if existing.is_empty() {
+        format!("{max_old_space_flag}{HAOS_NODE_MAX_OLD_SPACE_MB}")
+    } else {
+        format!("{existing} {max_old_space_flag}{HAOS_NODE_MAX_OLD_SPACE_MB}")
+    }
+}
+
 fn prepare_directories(args: &HaosEntryArgs) -> std::io::Result<()> {
     for path in [
         &args.openclaw_config_dir,
@@ -689,6 +704,8 @@ fn apply_runtime_env(args: &HaosEntryArgs, settings: &RuntimeSettings) {
         env::set_var("OPENCLAW_WORKSPACE_DIR", &args.openclaw_workspace_dir);
         env::set_var("XDG_CONFIG_HOME", "/config");
         env::set_var("OPENCLAW_NO_RESPAWN", "1");
+        // Keep CLI flows like `openclaw onboard` from exhausting low-memory HAOS hosts.
+        env::set_var("NODE_OPTIONS", runtime_node_options(env::var("NODE_OPTIONS").ok().as_deref()));
         env::set_var("NODE_COMPILE_CACHE", "/var/tmp/openclaw-compile-cache");
         env::set_var("MCPORTER_HOME_DIR", &args.mcporter_home_dir);
         env::set_var("MCPORTER_CONFIG", &args.mcporter_config);
@@ -1505,6 +1522,7 @@ fn apply_child_env(command: &mut Command) {
         "OPENCLAW_WORKSPACE_DIR",
         "XDG_CONFIG_HOME",
         "OPENCLAW_NO_RESPAWN",
+        "NODE_OPTIONS",
         "NODE_COMPILE_CACHE",
         "MCPORTER_HOME_DIR",
         "MCPORTER_CONFIG",
@@ -1600,6 +1618,32 @@ mod tests {
 
         assert!(origins.contains(&"https://ha.example.com".to_string()));
         assert!(origins.contains(&"https://proxy.example.com".to_string()));
+    }
+
+    #[test]
+    fn runtime_node_options_sets_default_haos_heap_cap() {
+        assert_eq!(
+            runtime_node_options(None),
+            format!("--max-old-space-size={HAOS_NODE_MAX_OLD_SPACE_MB}")
+        );
+    }
+
+    #[test]
+    fn runtime_node_options_appends_cap_to_existing_flags() {
+        assert_eq!(
+            runtime_node_options(Some("--trace-warnings")),
+            format!(
+                "--trace-warnings --max-old-space-size={HAOS_NODE_MAX_OLD_SPACE_MB}"
+            )
+        );
+    }
+
+    #[test]
+    fn runtime_node_options_preserves_existing_heap_cap() {
+        assert_eq!(
+            runtime_node_options(Some("--max-old-space-size=768 --trace-warnings")),
+            "--max-old-space-size=768 --trace-warnings"
+        );
     }
 
     #[test]
