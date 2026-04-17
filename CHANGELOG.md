@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.18.3
+
+- Keep the build-time Cargo registry and git cache optimization, but stop caching the full Rust `target` directory in Docker BuildKit after the previous attempt filled the GitHub-hosted `amd64` runner disk and broke the image job with `No space left on device`
+
 ## 2026.04.18.2
 
 - Fix the new Rust BuildKit cache step so it runs under Docker's default shell correctly on both architectures; the cache-mount optimization stays in place, but the command no longer wraps `cargo build` in an extra shell invocation that broke GHCR builds
