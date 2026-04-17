@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.17.8
+
+- Stop auto-running `openclaw doctor --fix` on first boot when `run_doctor_on_start` is left at its default `false`, so low-memory HAOS hosts do not trigger a startup doctor OOM loop while onboarding
+
 ## 2026.04.17.7
 
 - Add a low-memory HAOS runtime guard by exporting `NODE_OPTIONS=--max-old-space-size=512` from the add-on supervisor unless the environment already sets a heap cap, so `openclaw onboard`, startup doctor, and other CLI flows stop getting OOM-killed on 2 GB Home Assistant hosts

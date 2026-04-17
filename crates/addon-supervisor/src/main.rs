@@ -1038,17 +1038,8 @@ fn ensure_runtime_dir() -> std::io::Result<()> {
     fs::create_dir_all("/run/openclaw-rs")
 }
 
-fn startup_doctor_marker_path() -> PathBuf {
-    Path::new(&env::var("OPENCLAW_CONFIG_DIR").unwrap_or_else(|_| "/config/.openclaw".to_string()))
-        .join(".startup-doctor-complete")
-}
-
 fn should_run_startup_doctor(force_on_start: bool) -> bool {
-    should_run_startup_doctor_with_marker(force_on_start, startup_doctor_marker_path().exists())
-}
-
-fn should_run_startup_doctor_with_marker(force_on_start: bool, marker_exists: bool) -> bool {
-    force_on_start || !marker_exists
+    force_on_start
 }
 
 fn pid_file_path(name: &str) -> PathBuf {
@@ -1160,7 +1151,6 @@ fn run_services(
         if should_run_startup_doctor(run_doctor_on_start) {
             handles.push(tokio::spawn(run_startup_doctor(
                 gateway_bin.clone(),
-                startup_doctor_marker_path(),
                 shutdown_tx.subscribe(),
             )));
         }
@@ -1273,11 +1263,7 @@ async fn run_managed_process(spec: ProcessSpec, mut shutdown_rx: watch::Receiver
     }
 }
 
-async fn run_startup_doctor(
-    gateway_bin: String,
-    marker_path: PathBuf,
-    mut shutdown_rx: watch::Receiver<bool>,
-) {
+async fn run_startup_doctor(gateway_bin: String, mut shutdown_rx: watch::Receiver<bool>) {
     tokio::select! {
         _ = shutdown_rx.changed() => return,
         _ = sleep(Duration::from_secs(15)) => {}
@@ -1311,15 +1297,7 @@ async fn run_startup_doctor(
         }
         result = child.wait() => {
             match result {
-                Ok(status) if status.success() => {
-                    if let Err(err) = fs::write(&marker_path, "ok\n") {
-                        eprintln!(
-                            "addon-supervisor: failed to persist startup doctor marker at {}: {}",
-                            marker_path.display(),
-                            err
-                        );
-                    }
-                }
+                Ok(status) if status.success() => {}
                 Ok(status) => {
                     eprintln!("addon-supervisor: startup doctor exited with status {status}");
                 }
@@ -1652,10 +1630,9 @@ mod tests {
     }
 
     #[test]
-    fn startup_doctor_runs_on_first_boot_then_respects_switch() {
-        assert!(should_run_startup_doctor_with_marker(false, false));
-        assert!(!should_run_startup_doctor_with_marker(false, true));
-        assert!(should_run_startup_doctor_with_marker(true, true));
+    fn startup_doctor_only_runs_when_explicitly_enabled() {
+        assert!(!should_run_startup_doctor(false));
+        assert!(should_run_startup_doctor(true));
     }
 
     #[test]
