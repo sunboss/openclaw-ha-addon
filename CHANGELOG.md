@@ -2,7 +2,7 @@
 
 ## 2026.04.17.9
 
-- Add workspace-template integrity checks in both the add-on supervisor and the final image build so packaging mistakes around `docs/reference/templates/*.md` fail fast instead of surfacing later during `openclaw onboard`
+- Add workspace-template integrity checks in both the add-on supervisor and the final image build, and explicitly copy `docs/reference/templates/*.md` from the vendored upstream source into the final image so packaging mistakes fail fast instead of surfacing later during `openclaw onboard`
 
 ## 2026.04.17.8
 

@@ -2,7 +2,7 @@
 
 ## 2026-04-18
 
-- Verified the OpenClaw template lookup path against upstream (`packageRoot/docs/reference/templates`) and added add-on-side integrity checks so missing packaged workspace templates now fail immediately at build/startup instead of later during onboarding
+- Verified the OpenClaw template lookup path against upstream (`packageRoot/docs/reference/templates`), then pinned the final image to copy `docs/reference/templates` directly from the vendored upstream source and added add-on-side integrity checks so missing packaged workspace templates now fail immediately at build/startup instead of later during onboarding
 - Removed the add-on's implicit "first boot" startup doctor run so `run_doctor_on_start=false` now truly disables `openclaw doctor --fix`; this avoids the new low-memory failure mode where startup doctor, completion indexing, and gateway startup together could still OOM-kill the doctor process on a 2 GB HAOS host
 - Confirmed from HAOS kernel logs that `openclaw onboard` was being killed by the kernel OOM killer on a 2 GB system rather than crashing inside upstream wizard logic, then added an add-on runtime `NODE_OPTIONS=--max-old-space-size=512` guard so terminal CLI flows inherit a bounded Node heap
 - Vendored the exact upstream `openclaw/openclaw` `v2026.4.15` source tree into `upstream/openclaw-v2026.4.15` and removed the temporary exploratory clone so the add-on repository now carries the full upstream source needed for reviewable builds

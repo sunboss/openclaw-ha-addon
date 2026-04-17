@@ -54,6 +54,7 @@ FROM node:24-bookworm-slim
 
 ARG TARGETARCH
 ARG OPENCLAW_VERSION=2026.4.15
+ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.15
 ARG TTYD_VERSION=1.7.7
 ARG BUILD_VERSION=dev
 ARG BUILD_ARCH=amd64
@@ -108,6 +109,7 @@ COPY --from=openclaw-builder /opt/openclaw/extensions ./extensions
 COPY --from=openclaw-builder /opt/openclaw/skills ./skills
 COPY --from=openclaw-builder /opt/openclaw/docs ./docs
 COPY --from=openclaw-builder /opt/openclaw/qa ./qa
+COPY ${OPENCLAW_SOURCE_DIR}/docs/reference/templates ./docs/reference/templates
 
 RUN test -f /opt/openclaw/docs/reference/templates/AGENTS.md && \
     test -f /opt/openclaw/docs/reference/templates/SOUL.md && \
