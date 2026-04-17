@@ -2,6 +2,7 @@
 
 ## 2026-04-18
 
+- Confirmed the `Missing workspace template: IDENTITY.md` failure was not caused by the `/config` workspace mapping but by the vendored upstream snapshot missing two package-required template files from Git checkout: `docs/reference/templates/IDENTITY.md` and `USER.md` were present locally but ignored by upstream `.gitignore`, so GH Actions never sent them into the Docker build context
 - Verified the OpenClaw template lookup path against upstream (`packageRoot/docs/reference/templates`), then pinned the final image to copy `docs/reference/templates` directly from the vendored upstream source and added add-on-side integrity checks so missing packaged workspace templates now fail immediately at build/startup instead of later during onboarding
 - Removed the add-on's implicit "first boot" startup doctor run so `run_doctor_on_start=false` now truly disables `openclaw doctor --fix`; this avoids the new low-memory failure mode where startup doctor, completion indexing, and gateway startup together could still OOM-kill the doctor process on a 2 GB HAOS host
 - Confirmed from HAOS kernel logs that `openclaw onboard` was being killed by the kernel OOM killer on a 2 GB system rather than crashing inside upstream wizard logic, then added an add-on runtime `NODE_OPTIONS=--max-old-space-size=512` guard so terminal CLI flows inherit a bounded Node heap

@@ -38,6 +38,10 @@ Build rule:
 - Home Assistant-specific behavior lives in this repository's Rust wrapper crates
 - upstream source should stay unmodified unless a change is explicitly tracked as
   an add-on integration patch
+- vendored snapshots must also keep package-required workspace template files
+  such as `docs/reference/templates/IDENTITY.md` and `USER.md` checked in, even
+  if upstream `.gitignore` treats them as local files, because the official npm
+  package and runtime bootstrap expect them to be present
 
 ### Why HTTPS is the preferred path
 

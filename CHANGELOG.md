@@ -2,7 +2,8 @@
 
 ## 2026.04.17.9
 
-- Add workspace-template integrity checks in both the add-on supervisor and the final image build, and explicitly copy `docs/reference/templates/*.md` from the vendored upstream source into the final image so packaging mistakes fail fast instead of surfacing later during `openclaw onboard`
+- Add workspace-template integrity checks in both the add-on supervisor and the final image build so packaging mistakes fail fast instead of surfacing later during `openclaw onboard`
+- Force-track the vendored upstream `docs/reference/templates/IDENTITY.md` and `USER.md` files even though upstream `.gitignore` ignores them, because the official packaged runtime and workspace bootstrap both require those templates at runtime
 
 ## 2026.04.17.8
 
