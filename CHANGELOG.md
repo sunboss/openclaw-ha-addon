@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.18.4
+
+- Reduce GitHub Actions build-cache export scope from `mode=max` to `mode=min` so the `amd64` image job stops spending multiple extra minutes uploading oversized BuildKit cache state after the actual image has already been built and pushed
+
 ## 2026.04.18.3
 
 - Keep the build-time Cargo registry and git cache optimization, but stop caching the full Rust `target` directory in Docker BuildKit after the previous attempt filled the GitHub-hosted `amd64` runner disk and broke the image job with `No space left on device`

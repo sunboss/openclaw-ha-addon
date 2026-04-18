@@ -2,6 +2,7 @@
 
 ## 2026-04-18
 
+- Compared the old sub-10-minute image run against the current full-source build and confirmed the biggest remaining `amd64` regression is not Rust or pnpm itself but BuildKit cache export: the latest successful run spent about `472 s` exporting GHA cache, including about `153 s` preparing cache state and about `319 s` sending it, so the next optimization pass reduces `cache-to` from `mode=max` to `mode=min`
 - After the first cache-mount release reached GitHub Actions, the `amd64` runner failed with `No space left on device` while `arm64` succeeded; the likely trigger was persisting the full Rust `target` cache on top of the already-heavy upstream Node build, so the follow-up release keeps only lightweight Cargo registry/git caches and drops the `target` cache mount
 - Corrected the first Rust cache-mount Dockerfile attempt after GHCR showed both architectures failing immediately on the extra shell wrapper; the cache optimization now keeps the same Cargo target copy-back behavior but uses Docker's native command chaining so BuildKit can execute it portably
 - Measured the current HAOS runtime after the `2026.04.17.12` fixes: the add-on now returns `200` on the native gateway in about `123 ms`, returns `200` on the ingress endpoint in about `3 ms`, reaches first successful HTTP responses roughly `13 s` after a restart, and reports gateway `ready` in upstream logs after about `17.6 s`; steady-state memory on the test host is now about `503 MB` instead of the earlier crash-loop state above `700 MB`

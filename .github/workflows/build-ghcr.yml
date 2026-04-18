@@ -90,7 +90,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           provenance: false
           cache-from: type=gha,scope=openclaw-ha-addon-${{ matrix.suffix }}
-          cache-to: type=gha,mode=max,scope=openclaw-ha-addon-${{ matrix.suffix }}
+          cache-to: type=gha,mode=min,scope=openclaw-ha-addon-${{ matrix.suffix }}
           build-args: |
             BUILD_VERSION=${{ needs.meta.outputs.version }}
             BUILD_ARCH=${{ matrix.hass_arch }}
