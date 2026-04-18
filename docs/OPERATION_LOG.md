@@ -2,6 +2,7 @@
 
 ## 2026-04-18
 
+- Added a new add-on option `skip_acpx_runtime` that maps directly to upstream `OPENCLAW_SKIP_ACPX_RUNTIME=1`, so low-resource HAOS hosts can skip the embedded ACPX runtime backend without patching upstream source and we can measure the startup CPU/memory trade-off explicitly
 - After the Home Assistant store metadata finally refreshed, the HAOS test host `192.168.1.115` successfully upgraded the add-on from `2026.04.18.4` to `2026.04.18.5`; the `ha apps update` call ran for about `112 s`, Supervisor pulled `ghcr.io/sunboss/openclaw-ha-addon:2026.04.18.5`, removed the old `.18.4` image, and then started the new `.18.5` container successfully
 - Post-upgrade metadata on the same host now reports `version=2026.04.18.5`, `version_latest=2026.04.18.5`, `state=started`, and `update_available=false`
 - The host-level Docker image size remained flat after the upgrade: `ghcr.io/sunboss/openclaw-ha-addon:2026.04.18.5` is reported as `2.43 GB` unpacked on the HAOS host, matching the prior `.18.4` image footprint

@@ -64,6 +64,7 @@ The Home Assistant configuration page only exposes fields that are currently wir
 - `enable_openai_api`
 - `auto_configure_mcp`
 - `run_doctor_on_start`
+- `skip_acpx_runtime`
 
 ## 中文说明
 
@@ -121,6 +122,7 @@ Home Assistant 配置页当前只暴露已经接入运行时的字段：
 - `enable_openai_api`
 - `auto_configure_mcp`
 - `run_doctor_on_start`
+- `skip_acpx_runtime`
 
 ## Documents / 文档
 

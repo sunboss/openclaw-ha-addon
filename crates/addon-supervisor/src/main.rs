@@ -92,6 +92,7 @@ struct AddonOptions {
     enable_openai_api: Option<bool>,
     auto_configure_mcp: Option<bool>,
     run_doctor_on_start: Option<bool>,
+    skip_acpx_runtime: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -112,6 +113,7 @@ struct RuntimeSettings {
     enable_openai_api: bool,
     auto_configure_mcp: bool,
     run_doctor_on_start: bool,
+    skip_acpx_runtime: bool,
 }
 
 fn main() -> ExitCode {
@@ -272,6 +274,7 @@ fn runtime_settings(options: &AddonOptions) -> RuntimeSettings {
         enable_openai_api: options.enable_openai_api.unwrap_or(false),
         auto_configure_mcp: options.auto_configure_mcp.unwrap_or(true),
         run_doctor_on_start: options.run_doctor_on_start.unwrap_or(false),
+        skip_acpx_runtime: options.skip_acpx_runtime.unwrap_or(false),
     }
 }
 
@@ -910,6 +913,10 @@ fn apply_runtime_env(args: &HaosEntryArgs, settings: &RuntimeSettings) {
         env::set_var(
             "OPENCLAW_DISABLE_BONJOUR",
             if settings.disable_bonjour { "1" } else { "0" },
+        );
+        env::set_var(
+            "OPENCLAW_SKIP_ACPX_RUNTIME",
+            if settings.skip_acpx_runtime { "1" } else { "0" },
         );
         env::set_var(
             "GATEWAY_INTERNAL_PORT",
@@ -1767,6 +1774,7 @@ fn apply_child_env(command: &mut Command) {
         "HTTPS_PORT",
         "OPENCLAW_TERMINAL_ENABLED",
         "OPENCLAW_DISABLE_BONJOUR",
+        "OPENCLAW_SKIP_ACPX_RUNTIME",
         "OPENCLAW_GATEWAY_TOKEN",
         "OPENCLAW_MODEL_PRIMARY",
         "GATEWAY_INTERNAL_PORT",
@@ -1806,6 +1814,7 @@ mod tests {
             enable_openai_api: false,
             auto_configure_mcp: true,
             run_doctor_on_start: false,
+            skip_acpx_runtime: false,
         }
     }
 
@@ -1868,6 +1877,18 @@ mod tests {
                 "--trace-warnings --max-old-space-size={HAOS_NODE_MAX_OLD_SPACE_MB}"
             )
         );
+    }
+
+    #[test]
+    fn runtime_settings_reads_skip_acpx_runtime_option() {
+        let options = AddonOptions {
+            skip_acpx_runtime: Some(true),
+            ..Default::default()
+        };
+
+        let settings = runtime_settings(&options);
+
+        assert!(settings.skip_acpx_runtime);
     }
 
     #[test]

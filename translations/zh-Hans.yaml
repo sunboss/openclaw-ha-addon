@@ -47,3 +47,6 @@ configuration:
   run_doctor_on_start:
     name: 启动时运行 Doctor
     description: 启动后执行 `openclaw doctor --fix`，适合首次安装或排障时使用。
+  skip_acpx_runtime:
+    name: 跳过 ACPX 运行时
+    description: 当不需要 ACPX 功能时，跳过内置 ACPX 运行时后端，用于降低低配 HAOS 主机上的启动 CPU 和内存峰值。

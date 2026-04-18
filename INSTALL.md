@@ -39,6 +39,7 @@ Useful add-on options in the Home Assistant config page:
 - `enable_openai_api`
 - `auto_configure_mcp`
 - `run_doctor_on_start`
+- `skip_acpx_runtime`
 
 ### Start and verify
 
@@ -87,6 +88,7 @@ https://github.com/sunboss/openclaw-ha-addon
 - `enable_openai_api`
 - `auto_configure_mcp`
 - `run_doctor_on_start`
+- `skip_acpx_runtime`
 
 ### 启动与验证
 

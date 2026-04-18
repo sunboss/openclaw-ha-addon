@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.18.6
+
+- Add a new `skip_acpx_runtime` add-on option that maps to upstream `OPENCLAW_SKIP_ACPX_RUNTIME=1`, giving low-resource HAOS hosts a supported way to skip the embedded ACPX runtime backend when it is not needed and trim startup CPU and memory spikes
+
 ## 2026.04.18.5
 
 - Stop forcing the HA entry-page device approval actions through explicit `--url/--token` gateway flags so the official `openclaw devices list/approve` local loopback fallback can recover from `pairing required` and read the local pairing table as upstream intends

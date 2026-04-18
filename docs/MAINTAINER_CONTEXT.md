@@ -56,6 +56,7 @@ Only expose configuration fields that are understandable and actually wired into
 - `enable_openai_api`
 - `auto_configure_mcp`
 - `run_doctor_on_start`
+- `skip_acpx_runtime`
 
 Do not re-add dangerous debug toggles as a normal supported surface.
 

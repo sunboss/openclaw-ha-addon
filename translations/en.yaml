@@ -47,3 +47,6 @@ configuration:
   run_doctor_on_start:
     name: Run Doctor On Start
     description: Run `openclaw doctor --fix` after startup for diagnostics and first-boot repair.
+  skip_acpx_runtime:
+    name: Skip ACPX Runtime
+    description: Skip the embedded ACPX runtime backend to reduce startup CPU and memory on low-resource HAOS hosts when ACPX is not needed.
