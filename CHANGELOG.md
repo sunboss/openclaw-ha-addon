@@ -1,5 +1,10 @@
 # Changelog
 
+## 2026.04.18.5
+
+- Stop forcing the HA entry-page device approval actions through explicit `--url/--token` gateway flags so the official `openclaw devices list/approve` local loopback fallback can recover from `pairing required` and read the local pairing table as upstream intends
+- Give `ingressd` a longer timeout for proxied HA UI requests so slow CLI-backed POST actions like pending-device listing and approval no longer get cut off after 10 seconds and surfaced to the browser as plain-text `502 Bad Gateway`
+
 ## 2026.04.18.4
 
 - Reduce GitHub Actions build-cache export scope from `mode=max` to `mode=min` so the `amd64` image job stops spending multiple extra minutes uploading oversized BuildKit cache state after the actual image has already been built and pushed

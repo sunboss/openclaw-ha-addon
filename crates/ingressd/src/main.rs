@@ -30,12 +30,16 @@ use tokio_tungstenite::{
 #[derive(Clone)]
 struct AppState {
     client: Client,
+    ui_client: Client,
     ui_base: String,
     gateway_http_base: String,
     gateway_ws_base: String,
     shell_http_base: String,
     shell_ws_base: String,
 }
+
+const DEFAULT_PROXY_TIMEOUT_SECS: u64 = 10;
+const UI_PROXY_TIMEOUT_SECS: u64 = 90;
 
 #[derive(Debug, Serialize)]
 struct ActionResponse {
@@ -84,7 +88,13 @@ async fn main() {
         client: Client::builder()
             .http2_adaptive_window(true)
             .redirect(reqwest::redirect::Policy::none())
-            .timeout(std::time::Duration::from_secs(10))
+            .timeout(std::time::Duration::from_secs(DEFAULT_PROXY_TIMEOUT_SECS))
+            .build()
+            .expect("build reqwest client"),
+        ui_client: Client::builder()
+            .http2_adaptive_window(true)
+            .redirect(reqwest::redirect::Policy::none())
+            .timeout(std::time::Duration::from_secs(UI_PROXY_TIMEOUT_SECS))
             .build()
             .expect("build reqwest client"),
         ui_base: format!("http://127.0.0.1:{ui_port}"),
@@ -182,7 +192,7 @@ async fn proxy_health(State(_state): State<AppState>, request: Request) -> impl 
 async fn proxy_ui(State(state): State<AppState>, request: Request) -> impl IntoResponse {
     let path = request.uri().path().to_string();
     let response =
-        proxy_http_request(&state.client, &state.ui_base, request, false, None, None).await;
+        proxy_http_request(&state.ui_client, &state.ui_base, request, false, None, None).await;
     if response.status() != StatusCode::BAD_GATEWAY {
         return response;
     }
