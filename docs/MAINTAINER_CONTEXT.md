@@ -57,6 +57,7 @@ Only expose configuration fields that are understandable and actually wired into
 - `auto_configure_mcp`
 - `run_doctor_on_start`
 - `skip_acpx_runtime`
+- `skip_feishu_channel`
 
 Do not re-add dangerous debug toggles as a normal supported surface.
 

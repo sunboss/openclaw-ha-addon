@@ -93,6 +93,7 @@ struct AddonOptions {
     auto_configure_mcp: Option<bool>,
     run_doctor_on_start: Option<bool>,
     skip_acpx_runtime: Option<bool>,
+    skip_feishu_channel: Option<bool>,
 }
 
 #[derive(Debug, Clone)]
@@ -114,6 +115,7 @@ struct RuntimeSettings {
     auto_configure_mcp: bool,
     run_doctor_on_start: bool,
     skip_acpx_runtime: bool,
+    skip_feishu_channel: bool,
 }
 
 fn main() -> ExitCode {
@@ -275,6 +277,7 @@ fn runtime_settings(options: &AddonOptions) -> RuntimeSettings {
         auto_configure_mcp: options.auto_configure_mcp.unwrap_or(true),
         run_doctor_on_start: options.run_doctor_on_start.unwrap_or(false),
         skip_acpx_runtime: options.skip_acpx_runtime.unwrap_or(false),
+        skip_feishu_channel: options.skip_feishu_channel.unwrap_or(false),
     }
 }
 
@@ -581,6 +584,7 @@ fn normalize_runtime_config(
     ensure_agent_defaults(config, args, settings);
     ensure_gateway_defaults(config, args, settings);
     ensure_control_ui_defaults(config, settings);
+    ensure_channel_overrides(config, settings);
     ensure_trusted_local_plugins(config, args);
 }
 
@@ -997,6 +1001,31 @@ fn apply_gateway_settings(args: &HaosEntryArgs, settings: &RuntimeSettings) -> b
             "--json",
         ],
     )
+}
+
+fn ensure_channel_overrides(config: &mut serde_json::Value, settings: &RuntimeSettings) {
+    if !settings.skip_feishu_channel {
+        return;
+    }
+
+    let Some(root) = config.as_object_mut() else {
+        return;
+    };
+    let Some(channels) = root.get_mut("channels").and_then(|value| value.as_object_mut()) else {
+        return;
+    };
+    let Some(feishu) = channels.get_mut("feishu") else {
+        return;
+    };
+
+    if !feishu.is_object() {
+        *feishu = serde_json::json!({});
+    }
+
+    feishu
+        .as_object_mut()
+        .expect("feishu channel object")
+        .insert("enabled".to_string(), serde_json::Value::Bool(false));
 }
 
 fn reconcile_runtime_config(
@@ -1815,6 +1844,7 @@ mod tests {
             auto_configure_mcp: true,
             run_doctor_on_start: false,
             skip_acpx_runtime: false,
+            skip_feishu_channel: false,
         }
     }
 
@@ -1889,6 +1919,38 @@ mod tests {
         let settings = runtime_settings(&options);
 
         assert!(settings.skip_acpx_runtime);
+    }
+
+    #[test]
+    fn runtime_settings_reads_skip_feishu_channel_option() {
+        let options = AddonOptions {
+            skip_feishu_channel: Some(true),
+            ..Default::default()
+        };
+
+        let settings = runtime_settings(&options);
+
+        assert!(settings.skip_feishu_channel);
+    }
+
+    #[test]
+    fn normalize_runtime_config_disables_feishu_channel_when_requested() {
+        let args = default_haos_entry_args();
+        let mut settings = sample_settings();
+        settings.skip_feishu_channel = true;
+        let mut config = serde_json::json!({
+            "channels": {
+                "feishu": {
+                    "enabled": true,
+                    "appId": "cli_test"
+                }
+            }
+        });
+
+        normalize_runtime_config(&mut config, &args, &settings);
+
+        assert_eq!(config["channels"]["feishu"]["enabled"], serde_json::json!(false));
+        assert_eq!(config["channels"]["feishu"]["appId"], serde_json::json!("cli_test"));
     }
 
     #[test]

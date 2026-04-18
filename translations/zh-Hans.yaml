@@ -1,31 +1,31 @@
 configuration:
   timezone:
     name: 时区
-    description: 设置容器内时区，并同步写入 OpenClaw 运行时默认时区。
+    description: 设置 add-on 容器内部时区，并同步写入 OpenClaw 默认运行配置。
   disable_bonjour:
     name: 关闭 Bonjour
-    description: 如果不需要局域网自动发现，建议关闭 Bonjour 广播以减少日志噪音。
+    description: 如果不需要局域网自动发现，建议关闭 Bonjour 广播以减少噪声。
   enable_terminal:
-    name: 启用命令行
-    description: 启动维护 Shell 服务，并在主页面保留命令行入口按钮。
+    name: 启用终端
+    description: 启动维护 Shell 服务，并在首页保留命令行入口。
   terminal_port:
-    name: 命令行端口
+    name: 终端端口
     description: 维护 Shell 使用的本地 ttyd 端口。
   gateway_mode:
     name: Gateway 模式
-    description: 写入官方运行时配置的 gateway.mode。除非你明确在做远程网关架构，否则保持 local。
+    description: 写入官方运行配置中的 gateway.mode。除非你明确要连远程网关，否则保持 `local`。
   gateway_remote_url:
     name: 远程 Gateway 地址
-    description: 仅当 Gateway 模式设置为 remote 时使用，对应官方 gateway.remote.url。
+    description: 仅当 Gateway 模式为 `remote` 时使用，对应官方 gateway.remote.url。
   gateway_bind_mode:
     name: Gateway 绑定方式
-    description: 写入官方运行时配置的 gateway.bind。当前 add-on 推荐保持 loopback。
+    description: 写入官方运行配置中的 gateway.bind。当前 add-on 推荐保持 `loopback`。
   gateway_port:
     name: Gateway HTTPS 端口
     description: add-on 对外暴露原生 OpenClaw Web UI 的 HTTPS 端口。
   gateway_public_url:
     name: Gateway 公网地址
-    description: 可选固定地址。填写后，“打开网关”按钮会优先跳到这里，而不是自动根据当前主机推断。
+    description: 可选固定入口地址。填写后，“打开网关”按钮会优先跳转到这里，而不是自动根据当前主机推断。
   homeassistant_token:
     name: Home Assistant Token
     description: 用于自动配置 Home Assistant MCP 的长期令牌。
@@ -33,20 +33,23 @@ configuration:
     name: HTTP 代理
     description: 可选 HTTP 或 HTTPS 代理地址，会导出到运行时环境变量。
   gateway_trusted_proxies:
-    name: Trusted Proxies
-    description: 额外的受信代理 CIDR 或 IP，使用英文逗号分隔，并追加到默认 loopback allowlist。
+    name: 受信代理
+    description: 额外受信任的代理 CIDR 或 IP，使用英文逗号分隔，并追加到官方 loopback allowlist。
   gateway_additional_allowed_origins:
-    name: Additional Allowed Origins
-    description: 额外允许的 Control UI 来源，使用英文逗号分隔，并追加到 add-on 默认来源集合。
+    name: 额外允许来源
+    description: 额外允许的 Control UI 来源，使用英文逗号分隔，并叠加到 add-on 默认来源列表。
   enable_openai_api:
     name: 启用 Chat Completions API
-    description: 打开网关里的 OpenAI 兼容 chat completions HTTP 端点。官方默认值是关闭。
+    description: 打开网关中的 OpenAI 兼容 chat completions HTTP 端点。官方默认值为关闭。
   auto_configure_mcp:
     name: 自动配置 Home Assistant MCP
-    description: 当提供了 Home Assistant Token 时，启动时自动注册 Home Assistant MCP 端点。
+    description: 当提供了 Home Assistant Token 时，在启动时自动注册 Home Assistant MCP 端点。
   run_doctor_on_start:
     name: 启动时运行 Doctor
     description: 启动后执行 `openclaw doctor --fix`，适合首次安装或排障时使用。
   skip_acpx_runtime:
     name: 跳过 ACPX 运行时
-    description: 当不需要 ACPX 功能时，跳过内置 ACPX 运行时后端，用于降低低配 HAOS 主机上的启动 CPU 和内存峰值。
+    description: 当不需要 ACPX 功能时，跳过内置 ACPX 运行时后端，以降低低配 HAOS 主机上的启动 CPU 和内存峰值。
+  skip_feishu_channel:
+    name: 跳过飞书通道
+    description: 在运行时强制禁用已保存的飞书通道配置，让不再使用飞书的主机可以保留凭据，同时减少额外启动开销。

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2026.04.18.7
+
+- Add a new `skip_feishu_channel` add-on option that forces `channels.feishu.enabled = false` in the runtime config, letting hosts that no longer use Feishu keep saved credentials while skipping the channel's extra startup work
+
 ## 2026.04.18.6
 
 - Add a new `skip_acpx_runtime` add-on option that maps to upstream `OPENCLAW_SKIP_ACPX_RUNTIME=1`, giving low-resource HAOS hosts a supported way to skip the embedded ACPX runtime backend when it is not needed and trim startup CPU and memory spikes

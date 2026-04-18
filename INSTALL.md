@@ -40,6 +40,7 @@ Useful add-on options in the Home Assistant config page:
 - `auto_configure_mcp`
 - `run_doctor_on_start`
 - `skip_acpx_runtime`
+- `skip_feishu_channel`
 
 ### Start and verify
 
@@ -89,6 +90,7 @@ https://github.com/sunboss/openclaw-ha-addon
 - `auto_configure_mcp`
 - `run_doctor_on_start`
 - `skip_acpx_runtime`
+- `skip_feishu_channel`
 
 ### 启动与验证
 

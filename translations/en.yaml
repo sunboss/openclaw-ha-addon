@@ -50,3 +50,6 @@ configuration:
   skip_acpx_runtime:
     name: Skip ACPX Runtime
     description: Skip the embedded ACPX runtime backend to reduce startup CPU and memory on low-resource HAOS hosts when ACPX is not needed.
+  skip_feishu_channel:
+    name: Skip Feishu Channel
+    description: Force the stored Feishu channel configuration to stay disabled at runtime so hosts that no longer use Feishu can avoid its extra startup work without deleting saved credentials.

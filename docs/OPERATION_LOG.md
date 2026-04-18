@@ -2,6 +2,8 @@
 
 ## 2026-04-18
 
+- Confirmed from HAOS startup timing that `OPENCLAW_SKIP_ACPX_RUNTIME=1` works but only trims a small part of the cold-start spike; the more meaningful remaining startup cost is the Feishu channel path, which still begins initializing roughly `28-31 s` after gateway boot starts
+- Added a final add-on option `skip_feishu_channel` that forces `channels.feishu.enabled = false` in the reconciled runtime config, so operators who no longer use Feishu can keep their saved channel credentials but stop paying its startup CPU and memory cost on every restart
 - Added a new add-on option `skip_acpx_runtime` that maps directly to upstream `OPENCLAW_SKIP_ACPX_RUNTIME=1`, so low-resource HAOS hosts can skip the embedded ACPX runtime backend without patching upstream source and we can measure the startup CPU/memory trade-off explicitly
 - After the Home Assistant store metadata finally refreshed, the HAOS test host `192.168.1.115` successfully upgraded the add-on from `2026.04.18.4` to `2026.04.18.5`; the `ha apps update` call ran for about `112 s`, Supervisor pulled `ghcr.io/sunboss/openclaw-ha-addon:2026.04.18.5`, removed the old `.18.4` image, and then started the new `.18.5` container successfully
 - Post-upgrade metadata on the same host now reports `version=2026.04.18.5`, `version_latest=2026.04.18.5`, `state=started`, and `update_available=false`

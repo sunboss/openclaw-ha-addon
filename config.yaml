@@ -1,5 +1,5 @@
 name: OpenClaw HA Add-on
-version: "2026.04.18.6"
+version: "2026.04.18.7"
 slug: openclaw_ha_addon
 description: Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints.
 url: https://github.com/sunboss/openclaw-ha-addon
@@ -37,6 +37,7 @@ options:
   auto_configure_mcp: true
   run_doctor_on_start: false
   skip_acpx_runtime: false
+  skip_feishu_channel: false
 
 schema:
   timezone: str
@@ -56,3 +57,4 @@ schema:
   auto_configure_mcp: bool?
   run_doctor_on_start: bool?
   skip_acpx_runtime: bool?
+  skip_feishu_channel: bool?
