@@ -2,6 +2,7 @@
 
 ## 2026-04-18
 
+- Profiled a cold restart on the HAOS test host after upgrading to `2026.04.18.4`: CPU stayed roughly between `64%` and `73%` for the first `32 s`, while memory climbed from about `71 MB` at restart to about `567 MB` by `40 s`; the wrapped gateway reported `ready` after about `17.6 s`, but channel and sidecar startup continued afterward, with the Feishu websocket path and embedded ACPX runtime still initializing around the `20-30 s` mark
 - On the HAOS test host `192.168.1.115`, refreshed Supervisor store metadata until `version_latest` exposed `2026.04.18.4`, then upgraded the installed add-on from `2026.04.17.12` to `2026.04.18.4` successfully; post-upgrade `ha apps info` reported `version=2026.04.18.4`, `version_latest=2026.04.18.4`, `state=started`, and `update_available=false`
 - Verified post-upgrade runtime behavior on the same HAOS host: supervisor logs showed the wrapped gateway reaching `ready` in about `16.5 s`, a follow-up probe returned `200` from the native gateway in about `125 ms` and `200` from the ingress endpoint in about `5 ms`, and steady-state resource usage remained around `438 MB` RAM with negligible idle CPU
 - Compared the old sub-10-minute image run against the current full-source build and confirmed the biggest remaining `amd64` regression is not Rust or pnpm itself but BuildKit cache export: the latest successful run spent about `472 s` exporting GHA cache, including about `153 s` preparing cache state and about `319 s` sending it, so the next optimization pass reduces `cache-to` from `mode=max` to `mode=min`
