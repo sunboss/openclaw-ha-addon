@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.04.23.1
+
+- Upgrade the vendored upstream OpenClaw source from the official `v2026.4.15` tag to the official `v2026.4.21` tag
+- Keep the Home Assistant wrapper on the source-vendored build path, with no local OpenClaw runtime patches
+- Preserve rollback tag `v2026.04.17.3` before the runtime upgrade
+
 ## 2026.04.18.7
 
 - Add a new `skip_feishu_channel` add-on option that forces `channels.feishu.enabled = false` in the runtime config, letting hosts that no longer use Feishu keep saved credentials while skipping the channel's extra startup work
@@ -72,7 +78,6 @@
 ## 2026.04.17.4
 
 - Upgrade the bundled upstream runtime from the official published `openclaw@2026.4.14` package to `openclaw@2026.4.15` while keeping the Home Assistant wrapper behavior unchanged
-
 ## 2026.04.17.3
 
 - Replace the failing in-image upstream source build with the official published `openclaw@2026.4.14` npm tarball path, so GHCR builds no longer depend on compiling the full upstream workspace and its optional native development dependencies

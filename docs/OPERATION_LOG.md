@@ -1,5 +1,12 @@
 # Operation Log
 
+## 2026-04-23
+
+- Pushed rollback tag `v2026.04.17.3` before the runtime upgrade, preserving the last stable add-on state for rollback.
+- Rebased the OpenClaw runtime upgrade onto current `origin/main` so the existing source-vendored build and HAOS startup optimizations stay intact.
+- Replaced the vendored upstream source target from `upstream/openclaw-v2026.4.15` to the official `upstream/openclaw-v2026.4.21` source snapshot and updated Docker build args to `OPENCLAW_VERSION=2026.4.21`.
+- Updated the add-on version to `2026.04.23.1`; no local OpenClaw runtime source patches were added.
+
 ## 2026-04-18
 
 - Confirmed from HAOS startup timing that `OPENCLAW_SKIP_ACPX_RUNTIME=1` works but only trims a small part of the cold-start spike; the more meaningful remaining startup cost is the Feishu channel path, which still begins initializing roughly `28-31 s` after gateway boot starts
@@ -46,7 +53,6 @@
 - Removed the exposed `gateway_auth_mode` add-on option and aligned the wrapper to the supported Home Assistant deployment stance here: token-based gateway auth only
 - Changed the add-on `enable_openai_api` default back to `false` so the generated `gateway.http.endpoints.chatCompletions.enabled` setting matches the current upstream default instead of enabling the endpoint by default
 - Updated repository docs, translations, ignore rules, and maintainer notes so the supported configuration surface and build story match the new upstream-vendored token-only baseline
-
 ## 2026-04-17
 
 - Replaced the failing in-image upstream source build with a direct install path from the official published `openclaw@2026.4.14` npm tarball after confirming that the tarball itself installs successfully in a clean local npm prefix
