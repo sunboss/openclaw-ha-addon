@@ -7,6 +7,7 @@
 - Reconfirm the add-on storage mapping against the latest official docs: `/config/.openclaw` remains the HA persistent mirror of upstream `~/.openclaw`, with `/config/.openclaw/workspace` mapped to the official workspace root
 - Fix the Docker build-context whitelist so future vendored upstream directory changes do not break GHCR image builds when the OpenClaw version folder name advances
 - Force-track the vendored upstream `pnpm-lock.yaml` because upstream `.gitignore` excludes it, but the add-on's source-vendored Docker build still requires that lockfile for reproducible `pnpm install --frozen-lockfile`
+- Force-track the vendored upstream `docs/reference/templates/IDENTITY.md` and `USER.md`, which are still required by the final image integrity check even though upstream `.gitignore` ignores them
 
 ## 2026.04.18.7
 

@@ -7,6 +7,7 @@
 - Kept the HA add-on mapping on `/config/.openclaw` and `/config/.openclaw/workspace`, which is the intended persistent Home Assistant mirror of the upstream defaults, with `/root/.openclaw` preserved only as a compatibility symlink.
 - Fixed the Docker build-context allowlist after the first `v2026.4.22` push exposed a stale `.dockerignore` entry that still only whitelisted `upstream/openclaw-v2026.4.15`, which caused GHCR builds to miss `docs/reference/templates` from the current vendored source tree.
 - Traced the second GHCR failure to upstream's own vendored `.gitignore`: `upstream/openclaw-v2026.4.22/pnpm-lock.yaml` existed locally from the release tarball but was silently skipped by `git add` because the vendored upstream `.gitignore` ignores that file, so the follow-up fix force-tracks the root lockfile explicitly.
+- Traced the third GHCR failure to two more upstream-ignored but runtime-required template files: `docs/reference/templates/IDENTITY.md` and `USER.md` were present locally but omitted from the repository checkout, so the follow-up fix force-tracks both files to satisfy the final image template integrity check.
 
 ## 2026-04-23
 
