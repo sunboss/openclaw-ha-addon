@@ -1438,7 +1438,7 @@ mod tests {
             addon_version: "2026.04.15.16".to_string(),
             gateway_url: String::new(),
             gateway_port: "18789".to_string(),
-            openclaw_version: "2026.4.21".to_string(),
+            openclaw_version: "2026.4.22".to_string(),
             gateway_token: "tok_test_12345678".to_string(),
             agent_model: "openai-codex/gpt-5.4".to_string(),
             terminal_enabled: true,

@@ -1,10 +1,10 @@
 # Changelog
 
-## 2026.04.23.1
+## 2026.04.24.1
 
-- Upgrade the vendored upstream OpenClaw source from the official `v2026.4.15` tag to the official `v2026.4.21` tag
+- Upgrade the vendored upstream OpenClaw source from the official `v2026.4.21` tag to the official `v2026.4.22` tag
 - Keep the Home Assistant wrapper on the source-vendored build path, with no local OpenClaw runtime patches
-- Preserve rollback tag `v2026.04.17.3` before the runtime upgrade
+- Reconfirm the add-on storage mapping against the latest official docs: `/config/.openclaw` remains the HA persistent mirror of upstream `~/.openclaw`, with `/config/.openclaw/workspace` mapped to the official workspace root
 
 ## 2026.04.18.7
 

@@ -1,5 +1,11 @@
 # Operation Log
 
+## 2026-04-24
+
+- Upgraded the vendored upstream runtime again, this time from official `v2026.4.21` to official `v2026.4.22`, and aligned the add-on release number to `2026.04.24.1`.
+- Rechecked the latest official storage-layout docs before the upgrade and confirmed that upstream still treats `~/.openclaw` as the state/config root and `~/.openclaw/workspace` as the default workspace.
+- Kept the HA add-on mapping on `/config/.openclaw` and `/config/.openclaw/workspace`, which is the intended persistent Home Assistant mirror of the upstream defaults, with `/root/.openclaw` preserved only as a compatibility symlink.
+
 ## 2026-04-23
 
 - Pushed rollback tag `v2026.04.17.3` before the runtime upgrade, preserving the last stable add-on state for rollback.
