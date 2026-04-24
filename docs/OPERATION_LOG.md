@@ -6,6 +6,7 @@
 - Rechecked the latest official storage-layout docs before the upgrade and confirmed that upstream still treats `~/.openclaw` as the state/config root and `~/.openclaw/workspace` as the default workspace.
 - Kept the HA add-on mapping on `/config/.openclaw` and `/config/.openclaw/workspace`, which is the intended persistent Home Assistant mirror of the upstream defaults, with `/root/.openclaw` preserved only as a compatibility symlink.
 - Fixed the Docker build-context allowlist after the first `v2026.4.22` push exposed a stale `.dockerignore` entry that still only whitelisted `upstream/openclaw-v2026.4.15`, which caused GHCR builds to miss `docs/reference/templates` from the current vendored source tree.
+- Traced the second GHCR failure to upstream's own vendored `.gitignore`: `upstream/openclaw-v2026.4.22/pnpm-lock.yaml` existed locally from the release tarball but was silently skipped by `git add` because the vendored upstream `.gitignore` ignores that file, so the follow-up fix force-tracks the root lockfile explicitly.
 
 ## 2026-04-23
 

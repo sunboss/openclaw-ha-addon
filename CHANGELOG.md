@@ -6,6 +6,7 @@
 - Keep the Home Assistant wrapper on the source-vendored build path, with no local OpenClaw runtime patches
 - Reconfirm the add-on storage mapping against the latest official docs: `/config/.openclaw` remains the HA persistent mirror of upstream `~/.openclaw`, with `/config/.openclaw/workspace` mapped to the official workspace root
 - Fix the Docker build-context whitelist so future vendored upstream directory changes do not break GHCR image builds when the OpenClaw version folder name advances
+- Force-track the vendored upstream `pnpm-lock.yaml` because upstream `.gitignore` excludes it, but the add-on's source-vendored Docker build still requires that lockfile for reproducible `pnpm install --frozen-lockfile`
 
 ## 2026.04.18.7
 
