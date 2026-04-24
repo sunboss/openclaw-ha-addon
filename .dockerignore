@@ -8,8 +8,8 @@
 !crates/**
 !upstream/
 upstream/*
-!upstream/openclaw-v2026.4.15/
-!upstream/openclaw-v2026.4.15/**
+!upstream/openclaw-v*/
+!upstream/openclaw-v*/**
 _upstream_openclaw
 upstream/*.zip
 **/.git

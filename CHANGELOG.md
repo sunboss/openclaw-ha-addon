@@ -5,6 +5,7 @@
 - Upgrade the vendored upstream OpenClaw source from the official `v2026.4.21` tag to the official `v2026.4.22` tag
 - Keep the Home Assistant wrapper on the source-vendored build path, with no local OpenClaw runtime patches
 - Reconfirm the add-on storage mapping against the latest official docs: `/config/.openclaw` remains the HA persistent mirror of upstream `~/.openclaw`, with `/config/.openclaw/workspace` mapped to the official workspace root
+- Fix the Docker build-context whitelist so future vendored upstream directory changes do not break GHCR image builds when the OpenClaw version folder name advances
 
 ## 2026.04.18.7
 
