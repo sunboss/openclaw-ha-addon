@@ -1,5 +1,14 @@
 # Operation Log
 
+## 2026-04-25
+
+- Confirmed on the HAOS host that the installed add-on cannot offer an upgrade while Supervisor metadata reports `version=2026.04.24.1`, `version_latest=2026.04.24.1`, and `update_available=false`; the previously prepared `2026.04.24.2` browser-startup fix had only existed as local workspace changes and had not been pushed or built.
+- Preserved the current published `2026.04.24.1` state as rollback tag `v2026.04.24.1`, then rebased the pending startup fixes onto the official OpenClaw `v2026.4.23` source release because the running Gateway was already reporting that upstream update as available.
+- Investigated the latest HAOS startup logs and confirmed that the repeated `rops_handle_POLLIN_netlink: DELADDR` lines come from `ttyd/libwebsockets` notice-level network-change logging rather than from the OpenClaw Gateway itself; the Gateway, ingress proxy, and HA UI were still reaching a healthy started state.
+- Traced the new slow-start regression on `v2026.4.22` to upstream's bundled browser plugin repair path: the upstream `postinstall-bundled-plugins.mjs` script intentionally leaves bundled plugin runtime deps lazy by default, so our add-on was paying the browser plugin dependency install cost during the first Gateway boot.
+- Fixed that wrapper-specific cold-start penalty by preinstalling the browser plugin's local runtime deps into `dist/extensions/browser/node_modules` during the add-on image build and by baking Chromium into the final image with the bundled `playwright-core` CLI, matching the official Docker browser guidance closely enough for HAOS while removing the repeated first-boot repair/install path.
+- Reduced log noise from the maintenance Shell by starting `ttyd` with a warnings/errors-only libwebsockets log level, so address-change events such as `DELADDR` no longer flood the add-on log stream during otherwise healthy network churn.
+
 ## 2026-04-24
 
 - Upgraded the vendored upstream runtime again, this time from official `v2026.4.21` to official `v2026.4.22`, and aligned the add-on release number to `2026.04.24.1`.

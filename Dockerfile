@@ -10,8 +10,8 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 FROM oven/bun:1.2.18 AS bun-bin
 
 FROM node:24-bookworm AS openclaw-builder
-ARG OPENCLAW_VERSION=2026.4.22
-ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.22
+ARG OPENCLAW_VERSION=2026.4.23
+ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.23
 
 COPY --from=bun-bin /usr/local/bin/bun /usr/local/bin/bun
 
@@ -41,19 +41,21 @@ RUN pnpm build:docker && pnpm ui:build
 
 RUN CI=true NPM_CONFIG_FROZEN_LOCKFILE=false pnpm prune --prod && \
     node scripts/postinstall-bundled-plugins.mjs && \
+    npm --prefix dist/extensions/browser install --omit=dev --no-package-lock --no-save --ignore-scripts && \
     find dist -type f \( -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' -o -name '*.map' \) -delete
 
 FROM node:24-bookworm-slim
 
 ARG TARGETARCH
-ARG OPENCLAW_VERSION=2026.4.22
-ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.22
+ARG OPENCLAW_VERSION=2026.4.23
+ARG OPENCLAW_SOURCE_DIR=upstream/openclaw-v2026.4.23
 ARG TTYD_VERSION=1.7.7
 ARG BUILD_VERSION=dev
 ARG BUILD_ARCH=amd64
 ARG BUILD_DATE=unknown
 ARG BUILD_REF=unknown
 ENV ADDON_VERSION=${BUILD_VERSION}
+ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
 
 LABEL \
   io.hass.type="addon" \
@@ -79,6 +81,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     python-is-python3 \
     procps \
     iproute2 \
+    xvfb \
     tzdata \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
@@ -119,6 +122,10 @@ COPY --from=rust-builder /src/target/release/ingressd /usr/local/bin/ingressd
 COPY --from=rust-builder /src/target/release/oc-config /usr/local/bin/oc-config
 
 COPY config.yaml /etc/openclaw-addon-config.yaml
+
+RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
+    node /opt/openclaw/node_modules/playwright-core/cli.js install --with-deps chromium && \
+    chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
 
 RUN mkdir -p /run/nginx /run/openclaw-rs/public /config
 

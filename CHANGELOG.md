@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.04.25.1
+
+- Upgrade the vendored upstream OpenClaw source from the official `v2026.4.22` tag to the official `v2026.4.23` tag
+- Preinstall the bundled browser plugin runtime dependencies into `dist/extensions/browser/node_modules` during the image build so the Gateway no longer spends its first start repairing that plugin at runtime
+- Bake Chromium into the add-on image with the bundled `playwright-core` CLI, aligning the Home Assistant wrapper with the official Docker guidance for browser control and removing the repeated cold-start browser bootstrap path
+- Lower the maintenance Shell `ttyd` log level from libwebsockets notice output to warnings/errors only, reducing repeated `rops_handle_POLLIN_netlink: DELADDR` noise in add-on logs
+
 ## 2026.04.24.1
 
 - Upgrade the vendored upstream OpenClaw source from the official `v2026.4.21` tag to the official `v2026.4.22` tag

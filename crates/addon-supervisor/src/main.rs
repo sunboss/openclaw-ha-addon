@@ -1424,6 +1424,8 @@ fn run_services(
                         "127.0.0.1".to_string(),
                         "-p".to_string(),
                         env::var("TTYD_PORT").unwrap_or_else(|_| "7681".to_string()),
+                        "-d".to_string(),
+                        "3".to_string(),
                         "-W".to_string(),
                         "-t".to_string(),
                         "titleFixed=OpenClaw Maintenance Shell".to_string(),
