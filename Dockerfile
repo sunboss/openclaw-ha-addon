@@ -38,7 +38,7 @@ RUN pnpm build:docker && pnpm ui:build
 
 RUN CI=true NPM_CONFIG_FROZEN_LOCKFILE=false pnpm prune --prod && \
     node scripts/postinstall-bundled-plugins.mjs && \
-    npm --prefix dist/extensions/browser install --omit=dev --no-package-lock --no-save --ignore-scripts && \
+    pnpm --dir dist/extensions/browser install --prod --no-frozen-lockfile --ignore-scripts && \
     find dist -type f \( -name '*.d.ts' -o -name '*.d.mts' -o -name '*.d.cts' -o -name '*.map' \) -delete
 
 FROM node:24-bookworm-slim
