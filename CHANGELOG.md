@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026.05.20.1
+
+- Upgrade the bundled upstream OpenClaw runtime from official v2026.4.23 to official v2026.5.18.
+- Stop requiring a vendored upstream source directory for new OpenClaw releases; the Docker build now downloads the official release tarball for the selected version.
+- Publish a new HAOS add-on version so existing `OpenClaw HA Add-on` installs can detect the May 20 update.
+
 ## 2026.04.25.1
 
 - Upgrade the vendored upstream OpenClaw source from the official `v2026.4.22` tag to the official `v2026.4.23` tag
