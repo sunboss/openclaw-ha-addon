@@ -1,3 +1,8 @@
+## 2026.05.20.2
+
+- Harden HAOS gateway configuration by forcing insecure Control UI bypass flags off during startup reconciliation.
+- Keep the runtime config writer and startup normalizer aligned so OpenClaw no longer reintroduces the insecure-auth warning after restart.
+
 # Changelog
 
 ## 2026.05.20.1

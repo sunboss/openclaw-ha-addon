@@ -790,9 +790,18 @@ fn ensure_control_ui_defaults(config: &mut serde_json::Value, settings: &Runtime
         *control_ui = serde_json::json!({});
     }
 
-    control_ui.as_object_mut().expect("controlUi object").insert(
+    let control_ui = control_ui.as_object_mut().expect("controlUi object");
+    control_ui.insert(
         "allowedOrigins".to_string(),
         serde_json::json!(build_control_ui_allowed_origins(settings)),
+    );
+    control_ui.insert(
+        "allowInsecureAuth".to_string(),
+        serde_json::Value::Bool(false),
+    );
+    control_ui.insert(
+        "dangerouslyDisableDeviceAuth".to_string(),
+        serde_json::Value::Bool(false),
     );
 }
 
@@ -998,6 +1007,22 @@ fn apply_gateway_settings(args: &HaosEntryArgs, settings: &RuntimeSettings) -> b
             "set",
             "gateway.controlUi.allowedOrigins",
             &allowed_origins_json,
+            "--json",
+        ],
+    ) && run_status(
+        &args.oc_config_bin,
+        &[
+            "set",
+            "gateway.controlUi.allowInsecureAuth",
+            "false",
+            "--json",
+        ],
+    ) && run_status(
+        &args.oc_config_bin,
+        &[
+            "set",
+            "gateway.controlUi.dangerouslyDisableDeviceAuth",
+            "false",
             "--json",
         ],
     )
@@ -2439,6 +2464,14 @@ mod tests {
         assert_eq!(
             config["gateway"]["controlUi"]["allowedOrigins"],
             serde_json::json!(build_control_ui_allowed_origins(&sample_settings()))
+        );
+        assert_eq!(
+            config["gateway"]["controlUi"]["allowInsecureAuth"],
+            serde_json::json!(false)
+        );
+        assert_eq!(
+            config["gateway"]["controlUi"]["dangerouslyDisableDeviceAuth"],
+            serde_json::json!(false)
         );
 
         let _ = fs::remove_dir_all(root);
