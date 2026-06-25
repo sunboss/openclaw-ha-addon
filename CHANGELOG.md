@@ -1,3 +1,8 @@
+## 2026.06.26.1
+
+- Package upstream `src/agents/templates/HEARTBEAT.md` in the final HAOS image so OpenClaw 2026.6.10 webchat and subagent announcement flows no longer fail with a missing workspace template.
+- Extend startup template validation to check the runtime agent template path in addition to the older `docs/reference/templates` workspace template path.
+
 ## 2026.06.25.1
 
 - Upgrade the bundled upstream OpenClaw runtime from official v2026.5.18 to official v2026.6.10.

@@ -1,5 +1,14 @@
 # Operation Log
 
+## 2026-06-26
+
+- Investigated the post-upgrade HAOS runtime log where webchat message dispatch failed with `Missing workspace template: HEARTBEAT.md (/opt/openclaw/src/agents/templates/HEARTBEAT.md)`.
+- Confirmed upstream `openclaw/openclaw` `v2026.6.10` ships both `docs/reference/templates/HEARTBEAT.md` and `src/agents/templates/HEARTBEAT.md`; the production Dockerfile only copied the former into the final image.
+- Fixed the production image packaging by copying `/opt/openclaw/src/agents/templates` into the final image and adding a build-time check for `/opt/openclaw/src/agents/templates/HEARTBEAT.md`.
+- Updated the production add-on version from `2026.06.25.1` to `2026.06.26.1` so Supervisor can offer the packaging fix as an upgrade.
+- Local validation: `cargo test --workspace` passed, 34 tests, 0 failed.
+- Remote validation pending: GitHub Actions GHCR build, GHCR manifest, then HAOS `ha store reload` / `ha apps update 3dc2fc14_openclaw_ha_addon`.
+
 ## 2026-06-25
 
 - Corrected the release target after the Rust rewrite repository was upgraded first: the currently installed production HAOS add-on is `sunboss/openclaw-ha-addon` with slug `3dc2fc14_openclaw_ha_addon`, so Home Assistant would not detect the Rust rewrite repository's `2026.06.25.1` release.

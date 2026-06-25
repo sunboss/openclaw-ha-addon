@@ -391,12 +391,29 @@ fn runtime_node_options(existing: Option<&str>) -> String {
 
 fn verify_packaged_workspace_templates(gateway_bin: &str) -> Result<(), String> {
     let template_dir = resolve_workspace_template_dir(gateway_bin);
-    let missing = REQUIRED_WORKSPACE_TEMPLATES
+    let mut missing = REQUIRED_WORKSPACE_TEMPLATES
         .iter()
         .map(|name| (name, template_dir.join(name)))
         .filter(|(_, path)| !path.is_file())
         .map(|(name, path)| format!("{name} ({})", path.display()))
         .collect::<Vec<_>>();
+    let agent_heartbeat = resolve_gateway_package_root(gateway_bin)
+        .map(|root| {
+            root.join("src")
+                .join("agents")
+                .join("templates")
+                .join("HEARTBEAT.md")
+        })
+        .unwrap_or_else(|| {
+            PathBuf::from("/opt/openclaw")
+                .join("src")
+                .join("agents")
+                .join("templates")
+                .join("HEARTBEAT.md")
+        });
+    if !agent_heartbeat.is_file() {
+        missing.push(format!("agent HEARTBEAT.md ({})", agent_heartbeat.display()));
+    }
 
     if missing.is_empty() {
         Ok(())
