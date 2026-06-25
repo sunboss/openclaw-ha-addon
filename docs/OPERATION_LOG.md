@@ -8,7 +8,9 @@
 - Updated the production add-on version from `2026.05.20.2` to `2026.06.25.1` so Supervisor can offer the upgrade after store metadata refresh.
 - Release source: `https://github.com/openclaw/openclaw/releases/tag/v2026.6.10`
 - Local validation: `cargo test --workspace` passed, 34 tests, 0 failed.
-- Remote validation pending: GitHub Actions GHCR build, GHCR manifest, then HAOS `ha store reload` / `ha apps info 3dc2fc14_openclaw_ha_addon --raw-json`.
+- Remote validation: GitHub Actions `Build and Push GHCR Image` run `28166797004` completed successfully for commit `2ba04babc48d4f5d866cfb8922a8faf34ebbad0b`.
+- GHCR validation: `ghcr.io/sunboss/openclaw-ha-addon:latest` and `ghcr.io/sunboss/openclaw-ha-addon:2026.06.25.1` resolve to the same manifest digest `sha256:47267488db2b797cf063475d6b6df1b8cc262296e9d842d18ee9a5253d599a79`.
+- HAOS validation pending: run `ha store reload`, then check `ha apps info 3dc2fc14_openclaw_ha_addon --raw-json` for `version_latest=2026.06.25.1`.
 
 ## 2026-04-25
 
