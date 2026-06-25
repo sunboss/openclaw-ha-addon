@@ -7,7 +7,9 @@
 - Fixed the production image packaging by copying `/opt/openclaw/src/agents/templates` into the final image and adding a build-time check for `/opt/openclaw/src/agents/templates/HEARTBEAT.md`.
 - Updated the production add-on version from `2026.06.25.1` to `2026.06.26.1` so Supervisor can offer the packaging fix as an upgrade.
 - Local validation: `cargo test --workspace` passed, 34 tests, 0 failed.
-- Remote validation pending: GitHub Actions GHCR build, GHCR manifest, then HAOS `ha store reload` / `ha apps update 3dc2fc14_openclaw_ha_addon`.
+- Remote validation: GitHub Actions `Build and Push GHCR Image` run `28207158772` completed successfully for commit `ab6ef2a4d59bc05adad0d942882b2753fdbb7702`.
+- GHCR validation: `ghcr.io/sunboss/openclaw-ha-addon:latest` and `ghcr.io/sunboss/openclaw-ha-addon:2026.06.26.1` resolve to the same multi-arch manifest digest `sha256:339d02b20bbb092a8085d4e4d8f6e96c64e548f57e220abfb154d01eb8be907a` with `linux/amd64` and `linux/arm64`.
+- HAOS validation pending: run `ha store reload`, then check `ha apps info 3dc2fc14_openclaw_ha_addon --raw-json` for `version_latest=2026.06.26.1` before upgrading the installed add-on.
 
 ## 2026-06-25
 
