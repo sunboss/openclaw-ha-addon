@@ -1,5 +1,15 @@
 # Operation Log
 
+## 2026-06-25
+
+- Corrected the release target after the Rust rewrite repository was upgraded first: the currently installed production HAOS add-on is `sunboss/openclaw-ha-addon` with slug `3dc2fc14_openclaw_ha_addon`, so Home Assistant would not detect the Rust rewrite repository's `2026.06.25.1` release.
+- Upgraded the production bundled OpenClaw runtime from official `v2026.5.18` to official `v2026.6.10`.
+- Confirmed npm package availability for `openclaw@2026.6.10`; its Node engine requirement is `>=22.19.0`, so the existing Node 24 image remains compatible.
+- Updated the production add-on version from `2026.05.20.2` to `2026.06.25.1` so Supervisor can offer the upgrade after store metadata refresh.
+- Release source: `https://github.com/openclaw/openclaw/releases/tag/v2026.6.10`
+- Local validation: `cargo test --workspace` passed, 34 tests, 0 failed.
+- Remote validation pending: GitHub Actions GHCR build, GHCR manifest, then HAOS `ha store reload` / `ha apps info 3dc2fc14_openclaw_ha_addon --raw-json`.
+
 ## 2026-04-25
 
 - Confirmed on the HAOS host that the installed add-on cannot offer an upgrade while Supervisor metadata reports `version=2026.04.24.1`, `version_latest=2026.04.24.1`, and `update_available=false`; the previously prepared `2026.04.24.2` browser-startup fix had only existed as local workspace changes and had not been pushed or built.

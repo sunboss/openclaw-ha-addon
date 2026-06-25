@@ -94,6 +94,8 @@ For the two main entry buttons, verify at least:
 - Add-on version format:
   - `YYYY.MM.DD.N`
 - Every push increments the version.
+- Latest official OpenClaw release source used for the 2026-06-25 production upgrade:
+  - `https://github.com/openclaw/openclaw/releases/tag/v2026.6.10`
 
 ## Release metadata that must stay aligned
 

@@ -10,7 +10,7 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 FROM oven/bun:1.2.18 AS bun-bin
 
 FROM node:24-bookworm AS openclaw-builder
-ARG OPENCLAW_VERSION=2026.5.18
+ARG OPENCLAW_VERSION=2026.6.10
 
 COPY --from=bun-bin /usr/local/bin/bun /usr/local/bin/bun
 
@@ -44,7 +44,7 @@ RUN CI=true NPM_CONFIG_FROZEN_LOCKFILE=false pnpm prune --prod && \
 FROM node:24-bookworm-slim
 
 ARG TARGETARCH
-ARG OPENCLAW_VERSION=2026.5.18
+ARG OPENCLAW_VERSION=2026.6.10
 ARG TTYD_VERSION=1.7.7
 ARG BUILD_VERSION=dev
 ARG BUILD_ARCH=amd64

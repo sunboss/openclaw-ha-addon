@@ -1,3 +1,9 @@
+## 2026.06.25.1
+
+- Upgrade the bundled upstream OpenClaw runtime from official v2026.5.18 to official v2026.6.10.
+- Keep the image on Node 24, which satisfies OpenClaw 2026.6.10's `>=22.19.0` Node engine requirement.
+- Publish a production HAOS add-on version so installed `OpenClaw HA Add-on` instances can detect the June 25 update.
+
 ## 2026.05.20.2
 
 - Harden HAOS gateway configuration by forcing insecure Control UI bypass flags off during startup reconciliation.
