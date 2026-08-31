@@ -6,10 +6,4 @@
 !config.yaml
 !crates/
 !crates/**
-!upstream/
-upstream/*
-!upstream/openclaw-v*/
-!upstream/openclaw-v*/**
-_upstream_openclaw
-upstream/*.zip
 **/.git
