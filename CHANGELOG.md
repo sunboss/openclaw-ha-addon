@@ -1,3 +1,11 @@
+## 2026.08.31.1
+
+- Upgrade the bundled upstream OpenClaw runtime from official `v2026.6.10` to official `v2026.8.1` / OpenClaw 2.0.
+- Keep the production image on Node 24 and add a build-time guard for the upstream Node engine requirement.
+- Preserve the existing `src/agents/templates/HEARTBEAT.md` packaging and integrity checks.
+- Document the OpenProse and `codex/*` / `openai-codex/*` configuration migrations; use `openclaw doctor --fix` through the existing `run_doctor_on_start` option when upgrading an existing installation.
+- Validation: `cargo test --workspace` and multi-arch GHCR build.
+
 ## 2026.06.26.1
 
 - Package upstream `src/agents/templates/HEARTBEAT.md` in the final HAOS image so OpenClaw 2026.6.10 webchat and subagent announcement flows no longer fail with a missing workspace template.
