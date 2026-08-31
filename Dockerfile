@@ -5,7 +5,13 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git/db,sharing=locked \
-    cargo build --release --workspace
+    --mount=type=cache,target=/src/target,sharing=locked \
+    cargo build --release --workspace && \
+    mkdir -p /out && \
+    cp /src/target/release/addon-supervisor /out/ && \
+    cp /src/target/release/haos-ui /out/ && \
+    cp /src/target/release/ingressd /out/ && \
+    cp /src/target/release/oc-config /out/
 
 FROM oven/bun:1.2.18 AS bun-bin
 
@@ -53,20 +59,7 @@ ARG BUILD_VERSION=dev
 ARG BUILD_ARCH=amd64
 ARG BUILD_DATE=unknown
 ARG BUILD_REF=unknown
-ENV ADDON_VERSION=${BUILD_VERSION}
 ENV PLAYWRIGHT_BROWSERS_PATH=/root/.cache/ms-playwright
-
-LABEL \
-  io.hass.type="addon" \
-  io.hass.version="${BUILD_VERSION}" \
-  io.hass.arch="${BUILD_ARCH}" \
-  io.hass.name="OpenClaw HA Add-on" \
-  io.hass.description="Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints." \
-  org.opencontainers.image.title="OpenClaw HA Add-on" \
-  org.opencontainers.image.description="Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints." \
-  org.opencontainers.image.version="${BUILD_VERSION}" \
-  org.opencontainers.image.created="${BUILD_DATE}" \
-  org.opencontainers.image.revision="${BUILD_REF}"
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     bash \
@@ -115,17 +108,31 @@ RUN test -f /opt/openclaw/docs/reference/templates/AGENTS.md && \
 RUN ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw && \
     chmod 755 /opt/openclaw/openclaw.mjs
 
-COPY --from=rust-builder /src/target/release/addon-supervisor /usr/local/bin/addon-supervisor
-COPY --from=rust-builder /src/target/release/haos-ui /usr/local/bin/haos-ui
-COPY --from=rust-builder /src/target/release/ingressd /usr/local/bin/ingressd
-COPY --from=rust-builder /src/target/release/oc-config /usr/local/bin/oc-config
-
-COPY config.yaml /etc/openclaw-addon-config.yaml
-
 RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
     node /opt/openclaw/node_modules/playwright-core/cli.js install --with-deps chromium && \
     chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
 
+COPY --from=rust-builder /out/addon-supervisor /usr/local/bin/addon-supervisor
+COPY --from=rust-builder /out/haos-ui /usr/local/bin/haos-ui
+COPY --from=rust-builder /out/ingressd /usr/local/bin/ingressd
+COPY --from=rust-builder /out/oc-config /usr/local/bin/oc-config
+
+COPY config.yaml /etc/openclaw-addon-config.yaml
+
 RUN mkdir -p /run/nginx /run/openclaw-rs/public /config
+
+ENV ADDON_VERSION=${BUILD_VERSION}
+
+LABEL \
+  io.hass.type="addon" \
+  io.hass.version="${BUILD_VERSION}" \
+  io.hass.arch="${BUILD_ARCH}" \
+  io.hass.name="OpenClaw HA Add-on" \
+  io.hass.description="Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints." \
+  org.opencontainers.image.title="OpenClaw HA Add-on" \
+  org.opencontainers.image.description="Thin Home Assistant wrapper for the official OpenClaw runtime, with native HTTPS Gateway and maintenance Shell entrypoints." \
+  org.opencontainers.image.version="${BUILD_VERSION}" \
+  org.opencontainers.image.created="${BUILD_DATE}" \
+  org.opencontainers.image.revision="${BUILD_REF}"
 
 CMD ["addon-supervisor", "haos-entry"]
