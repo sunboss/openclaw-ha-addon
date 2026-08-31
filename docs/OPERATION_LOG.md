@@ -1,5 +1,30 @@
 # Operation Log
 
+## 2026-08-31 - Upgrade production add-on to OpenClaw 2.0 / v2026.8.1
+
+- Target: `sunboss/openclaw-ha-addon`, the add-on installed by the production HAOS instance.
+- Official sources checked:
+  - `https://github.com/openclaw/openclaw/releases/tag/v2026.8.1`
+  - `https://openclaw.ai/blog/openclaw-2-accidentally`
+  - `https://docs.openclaw.ai/releases/2026.8.1`
+  - `https://registry.npmjs.org/openclaw/latest`
+- HA compatibility checked:
+  - Core `2026.8.3`
+  - Supervisor `2026.08.0`
+  - HAOS `18.2`
+  - add-on targets `amd64` and `aarch64`
+- Changes:
+  - bump add-on version from `2026.06.26.1` to `2026.08.31.1`
+  - bump both production Docker build stages from OpenClaw `2026.6.10` to `2026.8.1`
+  - retain heartbeat template packaging checks
+  - add Node engine guard for `>=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0`
+  - document OpenProse and legacy OpenAI route migrations; keep `doctor --fix` opt-in
+- Compatibility assessment:
+  - no Rust wrapper API or HA add-on schema changes are required by the release
+  - the existing source-vendored build is rebuilt from the official `v2026.8.1` tarball
+  - the add-on must be upgraded only after a configuration/state backup; enable `run_doctor_on_start` for the migration, then verify Gateway startup and configured model routes
+- Validation: pending local checks and GitHub Actions multi-arch image build.
+
 ## 2026-06-26
 
 - Investigated the post-upgrade HAOS runtime log where webchat message dispatch failed with `Missing workspace template: HEARTBEAT.md (/opt/openclaw/src/agents/templates/HEARTBEAT.md)`.
