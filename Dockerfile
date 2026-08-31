@@ -5,13 +5,7 @@ COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git/db,sharing=locked \
-    --mount=type=cache,target=/src/target,sharing=locked \
-    cargo build --release --workspace && \
-    mkdir -p /out && \
-    cp /src/target/release/addon-supervisor /out/ && \
-    cp /src/target/release/haos-ui /out/ && \
-    cp /src/target/release/ingressd /out/ && \
-    cp /src/target/release/oc-config /out/
+    cargo build --release --workspace
 
 FROM oven/bun:1.2.18 AS bun-bin
 
@@ -112,10 +106,10 @@ RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
     node /opt/openclaw/node_modules/playwright-core/cli.js install --with-deps chromium && \
     chmod -R a+rX "$PLAYWRIGHT_BROWSERS_PATH"
 
-COPY --from=rust-builder /out/addon-supervisor /usr/local/bin/addon-supervisor
-COPY --from=rust-builder /out/haos-ui /usr/local/bin/haos-ui
-COPY --from=rust-builder /out/ingressd /usr/local/bin/ingressd
-COPY --from=rust-builder /out/oc-config /usr/local/bin/oc-config
+COPY --from=rust-builder /src/target/release/addon-supervisor /usr/local/bin/addon-supervisor
+COPY --from=rust-builder /src/target/release/haos-ui /usr/local/bin/haos-ui
+COPY --from=rust-builder /src/target/release/ingressd /usr/local/bin/ingressd
+COPY --from=rust-builder /src/target/release/oc-config /usr/local/bin/oc-config
 
 COPY config.yaml /etc/openclaw-addon-config.yaml
 
