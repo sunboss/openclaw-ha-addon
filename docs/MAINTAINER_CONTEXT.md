@@ -89,6 +89,31 @@ For the two main entry buttons, verify at least:
 - `/open-gateway` returns the expected redirect location
 - the rendered button center is not covered by a decorative layer
 
+## Upstream release lookup
+
+- Check the official OpenClaw release source first:
+  - `https://github.com/openclaw/openclaw/releases/latest`
+  - `https://registry.npmjs.org/openclaw/latest`
+- The 2026-08-31 production upgrade targets `v2026.8.1`:
+  - `https://github.com/openclaw/openclaw/releases/tag/v2026.8.1`
+  - `https://openclaw.ai/blog/openclaw-2-accidentally`
+  - `https://docs.openclaw.ai/releases/2026.8.1`
+  - `https://docs.openclaw.ai/plugins/sdk-migration`
+- OpenClaw 2.0 requires `openclaw doctor --fix` for the OpenProse and legacy
+  `codex/*` / `openai-codex/*` migrations. Do not run it automatically on every
+  startup; use the existing opt-in `run_doctor_on_start` path.
+
+## Home Assistant compatibility lookup
+
+- Check current platform versions from official sources:
+  - `https://www.home-assistant.io/changelogs/`
+  - `https://version.home-assistant.io/stable.json`
+  - `https://github.com/home-assistant/operating-system/releases/latest`
+  - `https://github.com/home-assistant/supervisor/releases/latest`
+- On 2026-08-31, the checked stable versions were Core `2026.8.3`, Supervisor
+  `2026.08.0`, and HAOS `18.2`; this add-on's `amd64`/`aarch64` targets and
+  multi-arch manifest remain compatible.
+
 ## Versioning
 
 - Add-on version format:
