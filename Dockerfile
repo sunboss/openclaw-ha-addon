@@ -10,13 +10,15 @@ RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
 FROM oven/bun:1.2.18 AS bun-bin
 
 FROM node:24-bookworm AS openclaw-builder
-ARG OPENCLAW_VERSION=2026.6.10
+ARG OPENCLAW_VERSION=2026.8.1
 
 COPY --from=bun-bin /usr/local/bin/bun /usr/local/bin/bun
 
 ENV OPENCLAW_PREFER_PNPM=1
 
 RUN corepack enable
+
+RUN node -e 'const [M,m]=process.versions.node.split(".").map(Number); const ok=(M===24&&m>=15)||(M===25&&m>=9)||(M===22&&m>=22); if(!ok){throw new Error(`OpenClaw ${process.env.OPENCLAW_VERSION || "runtime"} requires Node >=22.22.3 <23 || >=24.15.0 <25 || >=25.9.0; found ${process.versions.node}`)}'
 
 WORKDIR /opt/openclaw
 ADD https://github.com/openclaw/openclaw/archive/refs/tags/v${OPENCLAW_VERSION}.tar.gz /tmp/openclaw.tar.gz
@@ -44,7 +46,7 @@ RUN CI=true NPM_CONFIG_FROZEN_LOCKFILE=false pnpm prune --prod && \
 FROM node:24-bookworm-slim
 
 ARG TARGETARCH
-ARG OPENCLAW_VERSION=2026.6.10
+ARG OPENCLAW_VERSION=2026.8.1
 ARG TTYD_VERSION=1.7.7
 ARG BUILD_VERSION=dev
 ARG BUILD_ARCH=amd64
