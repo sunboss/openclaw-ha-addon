@@ -35,6 +35,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: /config.yaml
+          sparse-checkout-cone-mode: false
 
       - name: Extract add-on version
         id: meta
@@ -70,6 +73,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: |
+            /.dockerignore
+            /Cargo.toml
+            /Cargo.lock
+            /Dockerfile
+            /config.yaml
+            /crates/
+          sparse-checkout-cone-mode: false
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -90,7 +102,7 @@ jobs:
           platforms: ${{ matrix.platform }}
           provenance: false
           cache-from: type=gha,scope=openclaw-ha-addon-${{ matrix.suffix }}
-          cache-to: type=gha,mode=min,scope=openclaw-ha-addon-${{ matrix.suffix }}
+          cache-to: type=gha,mode=max,scope=openclaw-ha-addon-${{ matrix.suffix }}
           build-args: |
             BUILD_VERSION=${{ needs.meta.outputs.version }}
             BUILD_ARCH=${{ matrix.hass_arch }}
