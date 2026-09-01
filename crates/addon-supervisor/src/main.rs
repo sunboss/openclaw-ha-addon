@@ -391,29 +391,12 @@ fn runtime_node_options(existing: Option<&str>) -> String {
 
 fn verify_packaged_workspace_templates(gateway_bin: &str) -> Result<(), String> {
     let template_dir = resolve_workspace_template_dir(gateway_bin);
-    let mut missing = REQUIRED_WORKSPACE_TEMPLATES
+    let missing = REQUIRED_WORKSPACE_TEMPLATES
         .iter()
         .map(|name| (name, template_dir.join(name)))
         .filter(|(_, path)| !path.is_file())
         .map(|(name, path)| format!("{name} ({})", path.display()))
         .collect::<Vec<_>>();
-    let agent_heartbeat = resolve_gateway_package_root(gateway_bin)
-        .map(|root| {
-            root.join("src")
-                .join("agents")
-                .join("templates")
-                .join("HEARTBEAT.md")
-        })
-        .unwrap_or_else(|| {
-            PathBuf::from("/opt/openclaw")
-                .join("src")
-                .join("agents")
-                .join("templates")
-                .join("HEARTBEAT.md")
-        });
-    if !agent_heartbeat.is_file() {
-        missing.push(format!("agent HEARTBEAT.md ({})", agent_heartbeat.display()));
-    }
 
     if missing.is_empty() {
         Ok(())
@@ -2018,6 +2001,24 @@ mod tests {
         let expected = fs::canonicalize(&docs_dir).expect("canonical template dir");
 
         assert_eq!(resolved, expected);
+
+        let _ = fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn verify_packaged_workspace_templates_accepts_canonical_templates() {
+        let unique = format!("openclaw-template-complete-{}", random::<u64>());
+        let root = std::env::temp_dir().join(unique);
+        let docs_dir = root.join("docs").join("reference").join("templates");
+        fs::create_dir_all(&docs_dir).expect("create template dir");
+        fs::write(root.join("package.json"), r#"{"name":"openclaw"}"#).expect("write package");
+        fs::write(root.join("openclaw"), "#!/usr/bin/env node\n").expect("write binary");
+        for name in REQUIRED_WORKSPACE_TEMPLATES {
+            fs::write(docs_dir.join(name), name).expect("write template");
+        }
+
+        verify_packaged_workspace_templates(&root.join("openclaw").display().to_string())
+            .expect("canonical templates should pass without legacy source templates");
 
         let _ = fs::remove_dir_all(root);
     }
