@@ -1,5 +1,13 @@
 # Operation Log
 
+## 2026-09-01 - Force runtime image replacement after stale container startup
+
+- After upgrading to `2026.09.01.1`, HAOS reported the new version but startup logs still came from a legacy `addon-supervisor` referencing `/opt/openclaw/src/agents/templates/HEARTBEAT.md`.
+- Downloaded and inspected the published `2026.09.01.1` amd64 and arm64 OCI layers. Both packaged binaries were correct and did not contain the legacy path, proving that the HAOS runtime container was stale rather than the published binaries.
+- Changed the configured and published image repository to `ghcr.io/sunboss/openclaw-ha-addon-runtime`, forcing Supervisor to replace the image mapping during update.
+- Added the Git commit SHA to the Rust build cache key and a final-image guard that rejects any `addon-supervisor` containing the removed legacy path.
+- Release version: `2026.09.01.2`.
+
 ## 2026-09-01 - OpenClaw 2.0 startup template hotfix
 
 - Observed HAOS startup failure: `addon-supervisor: missing packaged OpenClaw workspace templates under /opt/openclaw/docs/reference/templates: agent HEARTBEAT.md (/opt/openclaw/src/agents/templates/HEARTBEAT.md)`.
