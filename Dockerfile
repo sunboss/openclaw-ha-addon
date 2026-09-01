@@ -1,8 +1,10 @@
 FROM rust:1.94-bookworm AS rust-builder
 
+ARG BUILD_REF=unknown
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
+RUN printf '%s\n' "${BUILD_REF}" > /src/.build-ref
 RUN --mount=type=cache,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,target=/usr/local/cargo/git/db,sharing=locked \
     cargo build --release --workspace
@@ -110,6 +112,8 @@ COPY --from=rust-builder /src/target/release/addon-supervisor /usr/local/bin/add
 COPY --from=rust-builder /src/target/release/haos-ui /usr/local/bin/haos-ui
 COPY --from=rust-builder /src/target/release/ingressd /usr/local/bin/ingressd
 COPY --from=rust-builder /src/target/release/oc-config /usr/local/bin/oc-config
+
+RUN ! grep -aFq '/opt/openclaw/src/agents/templates/HEARTBEAT.md' /usr/local/bin/addon-supervisor
 
 COPY config.yaml /etc/openclaw-addon-config.yaml
 
