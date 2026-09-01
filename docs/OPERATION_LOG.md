@@ -1,5 +1,13 @@
 # Operation Log
 
+## 2026-09-01 - OpenClaw 2.0 startup template hotfix
+
+- Observed HAOS startup failure: `addon-supervisor: missing packaged OpenClaw workspace templates under /opt/openclaw/docs/reference/templates: agent HEARTBEAT.md (/opt/openclaw/src/agents/templates/HEARTBEAT.md)`.
+- Root cause: OpenClaw 2026.8.1 removed the legacy `src/agents/templates` directory, but the Rust startup wrapper still required that path after the Dockerfile had already been updated to the canonical template location.
+- Fix: validate the seven required files only under `docs/reference/templates`; `HEARTBEAT.md` remains required there.
+- Release version: `2026.09.01.1` so HAOS installations on `2026.08.31.1` can detect the hotfix.
+- Validation: regression test plus full workspace tests and the GitHub Actions multi-arch image build.
+
 ## 2026-08-31 - Upgrade production add-on to OpenClaw 2.0 / v2026.8.1
 
 - Target: `sunboss/openclaw-ha-addon`, the add-on installed by the production HAOS instance.
