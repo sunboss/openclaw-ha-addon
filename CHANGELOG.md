@@ -1,3 +1,9 @@
+## 2026.09.01.2
+
+- Publish through the new `ghcr.io/sunboss/openclaw-ha-addon-runtime` image name so Home Assistant Supervisor must replace the stale container/image mapping.
+- Include the Git commit SHA in the Rust builder cache key.
+- Fail the image build if `addon-supervisor` still contains the removed legacy `src/agents/templates/HEARTBEAT.md` validation path.
+
 ## 2026.09.01.1
 
 - Stop requiring the removed OpenClaw 2.0 `src/agents/templates/HEARTBEAT.md` source path during add-on startup.
