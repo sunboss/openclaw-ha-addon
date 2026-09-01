@@ -48,7 +48,7 @@ jobs:
             echo "Failed to parse version from config.yaml" >&2
             exit 1
           fi
-          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/openclaw-ha-addon"
+          IMAGE="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/openclaw-ha-addon-runtime"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
           echo "image=${IMAGE}" >> "$GITHUB_OUTPUT"
           echo "Using version: ${VERSION}"
