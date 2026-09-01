@@ -89,6 +89,7 @@ COPY --from=openclaw-builder /opt/openclaw/dist ./dist
 COPY --from=openclaw-builder /opt/openclaw/node_modules ./node_modules
 COPY --from=openclaw-builder /opt/openclaw/package.json ./package.json
 COPY --from=openclaw-builder /opt/openclaw/openclaw.mjs ./openclaw.mjs
+COPY --from=openclaw-builder /opt/openclaw/node-version.mjs ./node-version.mjs
 COPY --from=openclaw-builder /opt/openclaw/extensions ./extensions
 COPY --from=openclaw-builder /opt/openclaw/skills ./skills
 COPY --from=openclaw-builder /opt/openclaw/docs/reference/templates ./docs/reference/templates
@@ -102,7 +103,9 @@ RUN test -f /opt/openclaw/docs/reference/templates/AGENTS.md && \
     test -f /opt/openclaw/docs/reference/templates/BOOTSTRAP.md
 
 RUN ln -sf /opt/openclaw/openclaw.mjs /usr/local/bin/openclaw && \
-    chmod 755 /opt/openclaw/openclaw.mjs
+    chmod 755 /opt/openclaw/openclaw.mjs && \
+    test -f /opt/openclaw/node-version.mjs && \
+    node /opt/openclaw/openclaw.mjs --version
 
 RUN mkdir -p "$PLAYWRIGHT_BROWSERS_PATH" && \
     node /opt/openclaw/node_modules/playwright-core/cli.js install --with-deps chromium && \
