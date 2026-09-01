@@ -1,8 +1,14 @@
+## 2026.09.01.1
+
+- Stop requiring the removed OpenClaw 2.0 `src/agents/templates/HEARTBEAT.md` source path during add-on startup.
+- Validate the canonical packaged workspace templates under `docs/reference/templates`, including `HEARTBEAT.md`.
+- Add a regression test proving OpenClaw 2026.8.1 starts without the legacy source-template directory.
+
 ## 2026.08.31.1
 
 - Upgrade the bundled upstream OpenClaw runtime from official `v2026.6.10` to official `v2026.8.1` / OpenClaw 2.0.
 - Keep the production image on Node 24 and add a build-time guard for the upstream Node engine requirement.
-- Preserve the existing `src/agents/templates/HEARTBEAT.md` packaging and integrity checks.
+- Package and validate the canonical workspace templates under `docs/reference/templates`.
 - Document the OpenProse and `codex/*` / `openai-codex/*` configuration migrations; use `openclaw doctor --fix` through the existing `run_doctor_on_start` option when upgrading an existing installation.
 - Validation: `cargo test --workspace` and multi-arch GHCR build.
 
