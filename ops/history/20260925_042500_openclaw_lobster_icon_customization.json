@@ -1,0 +1,23 @@
+{
+  "timestamp": "2026-09-25T04:25:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "deploy",
+  "summary": "将 OpenClaw 侧边栏图标替换为官方专属红橙色全彩小龙虾（Lobster/Claw）矢量图标，并修复 Node-RED 侧边栏图标显示，彻底解决图标千篇一律与辨识度低的问题。",
+  "commands": [
+    "修改 openclaw/config.yaml 中 panel_icon 为 mdi:lobster",
+    "创建 /config/www/openclaw-lobster-icon.js 并注册至 frontend.extra_module_url 与 lovelace_resources",
+    "通过 Supervisor API 与 aiohasupervisor 刷新 panels 注册并持久化",
+    "修复 Node-RED panel_icon 为 mdi:sitemap 并重新激活 Ingress 面板"
+  ],
+  "result_status": "success",
+  "verification_evidence": {
+    "openclaw_icon": "侧边栏显示官方专属红橙色高饱和度小龙虾（大螯、触角、眼睛、肢体），原生常驻全彩渲染",
+    "hermes_icon": "显示为线条机器人头（mdi:robot-excited-outline）",
+    "nodered_icon": "显示为树状流程图（mdi:sitemap）",
+    "browser_vision_audit": "经过真实浏览器截图与视觉多模态校验，三者轮廓鲜明、色彩撞色清晰，辨识度极高"
+  },
+  "rollback_point": "git revert HEAD in /Users/sunboss/Desktop/openclaw-ha-addon",
+  "next_steps": [
+    "用户在 Home Assistant 页面任意刷新即可看到专属彩色龙虾图标，点击即可直达 OpenClaw 控制台"
+  ]
+}

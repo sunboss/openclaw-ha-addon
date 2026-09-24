@@ -1,5 +1,21 @@
 # Operations Log
 
+## [2026-09-25T04:25:00+08:00] deploy: OpenClaw 侧边栏专属红橙色全彩小龙虾图标定制与侧边栏图标辨识度修复
+- **执行 Agent**：Hermes Agent
+- **操作目标**：响应用户指令拒绝统一机器人图标，将 OpenClaw 侧边栏图标定制为专属全彩红橙色小龙虾（Lobster/Claw）矢量图标，并修复 Node-RED 侧边栏图标缺失
+- **执行动作**：
+  1. 将 `openclaw/config.yaml` 侧边栏配置调整为 `panel_icon: "mdi:lobster"` 并同步 Git 仓库；
+  2. 提取官方矢量源，构建原生前端扩展模块 `/config/www/openclaw-lobster-icon.js`，通过 `configuration.yaml` 的 `frontend.extra_module_url` 持久化加载；
+  3. 为 `OpenClaw` 注入高饱和度红橙色小龙虾专属渐变图标（双螯、触角、眼睛、肢体完整且彩色渲染）；
+  4. 顺带修复 `Node-RED` 的 `panel_icon` 为经典流程图图标 `mdi:sitemap` 并重新激活；
+  5. 通过真实浏览器无痕环境多模态视觉核验，确认侧边栏三大集成图标完全独立、鲜明区分。
+- **真实验证证据**：
+  - `Hermes Agent` -> 机器人头部线条图标（`mdi:robot-excited-outline`）；
+  - `Node-RED` -> 树状流程图图标（`mdi:sitemap`）；
+  - `OpenClaw` -> 独一无二的红橙色专属卡通小龙虾全彩图标；
+  - 视觉模型审查结论：“全部成功渲染，并且各自具备极高且独特的辨识度”。
+- **关联归档**：`ops/history/20260925_042500_openclaw_lobster_icon_customization.json`
+
 ## [2026-09-25T03:55:00+08:00] modify: OpenClaw 性能瓶颈排查与加载耗时极致优化（毫秒级响应）
 - **执行 Agent**：Hermes Agent
 - **操作目标**：解决 LAN 直连（18789）与 HA Ingress（8099）模式下 Control UI 资源体积大、未压缩、加载卡顿及 DNS 转发延迟问题
