@@ -19,7 +19,7 @@ ports:
 ports_description:
   18789/tcp: "OpenClaw Control UI 控制台与网关直连端口 (局域网秒开，免 Ingress 限制)"
 map:
-  - addon_config:rw
+  - app_config:rw
 options:
   llm_model: "claude-3-7-sonnet"
   openai_base_url: "https://api.1234r.com/v1"
