@@ -1,0 +1,16 @@
+{
+  "timestamp": "2026-09-24T23:40:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "deploy",
+  "summary": "卸载本地测试版 local_openclaw，并通过 HA 应用商店远程 Git 仓库 (https://github.com/sunboss/openclaw-ha-addon, slug: 3dc2fc14_openclaw) 完成远程编译、安装与上线验证",
+  "commands": [
+    "ha apps uninstall local_openclaw",
+    "ha store repositories add https://github.com/sunboss/openclaw-ha-addon",
+    "ha apps install 3dc2fc14_openclaw",
+    "ha apps start 3dc2fc14_openclaw"
+  ],
+  "result_status": "success",
+  "verification_evidence": "Build 3dc2fc14/aarch64-addon-openclaw:2026.9.24.1 done; App '3dc2fc14_openclaw' successfully installed; 容器 app_3dc2fc14_openclaw Up; 8099/18789/18790 全部 LISTEN; curl http://192.168.1.66:18789/ HTTP/1.1 200 OK",
+  "rollback_point": "/mnt/data/supervisor/app_configs/3dc2fc14_openclaw/.openclaw/ 持久化目录及 GitHub 仓库 sunboss/openclaw-ha-addon@7cc8552",
+  "next_steps": "后续升级直接在 GitHub 仓库递增 config.yaml 版本号并推送，HA 应用商店即可直接检测并点击一键更新。"
+}

@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-09-24T16:18:00+00:00",
+  "agent": "Hermes-Agent",
+  "action_type": "deploy",
+  "summary": "已解决 Ingress 侧边栏图标缺失与 403 proxy_attribution_required 拦截问题。开启 ingress_panel 并更新图标为 mdi:robot；Nginx 动态注入 X-Ingress-Path 支持子路径资源重定向并清空上游透传代理头，双通道（LAN 18789 与 Ingress 8099）全面恢复 HTTP 200 OK。",
+  "commands": [
+    "openclaw/config.yaml: ingress_panel: true, panel_icon: mdi:robot, panel_title: OpenClaw",
+    "openclaw/rootfs/etc/nginx/nginx.conf: 8099 动态注入 base-path 前缀并剥离 X-Forwarded 冲突头",
+    "docker exec hassio_supervisor curl -s -I http://app_3dc2fc14_openclaw:8099/",
+    "curl -s -I http://127.0.0.1:18789/"
+  ],
+  "result_status": "success",
+  "verification_evidence": {
+    "ingress_panel_status": true,
+    "ingress_port_8099_http_code": 200,
+    "lan_port_18789_http_code": 200,
+    "base_path_injection": "data-openclaw-control-ui-base-path=\"/api/hassio_ingress/...\" verified"
+  },
+  "rollback_point": "Git commit 0609e5d 或重新 build",
+  "next_steps": "用户在浏览器中刷新 Home Assistant 页面（Cmd + Shift + R），侧边栏将立即展示 OpenClaw 图标（机器人图标），点击即可无缝内嵌加载 Control UI。"
+}

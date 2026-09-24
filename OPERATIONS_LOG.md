@@ -1,5 +1,33 @@
 # Operations Log
 
+## [2026-09-24T24:18:00+08:00] deploy: Ingress 侧边栏图标（mdi:robot）与 403 拦截修复上线
+- **执行 Agent**：Hermes Agent
+- **操作目标**：解决 Ingress 访问报 `proxy_attribution_required` 403 错误以及侧边栏入口缺失问题
+- **执行动作**：
+  1. 在 `config.yaml` 补充 `ingress_panel: true`，设置标准图标 `panel_icon: "mdi:robot"`、`panel_title: "OpenClaw"`；
+  2. 在 `nginx.conf` 8099 端口配置 `sub_filter` 动态替换 `data-openclaw-control-ui-base-path` 为 `$http_x_ingress_path`，解决 Ingress 子路径静态资源加载；
+  3. 清除 Nginx 转发到网关的冲突 `X-Forwarded-*` 头，规避 OpenClaw 严格的代理客户端归属检测；
+  4. 重载 Nginx 并提交更新至官方 Docker 镜像及 GitHub 仓库。
+- **验证证据**：
+  - `docker exec hassio_supervisor curl -s -I http://app_3dc2fc14_openclaw:8099/` -> `HTTP/1.1 200 OK`
+  - `curl -s -I http://127.0.0.1:18789/` -> `HTTP/1.1 200 OK`
+  - `Supervisor /ingress/panels` API 确认 `3dc2fc14_openclaw` 处于 `enable: true`。
+- **关联归档**：`ops/history/20260924_241800_ingress_and_sidebar_fix.json`
+
+## [2026-09-24T23:40:00+08:00] deploy: 卸载本地测试版并通过 HA Store 远程 Git 仓库完成安装与上线 (3dc2fc14_openclaw)
+- **执行 Agent**：Hermes Agent
+- **操作目标**：彻底卸载本地 `local_openclaw`，切换为通过 Home Assistant 应用商店（远程 GitHub 仓库 `https://github.com/sunboss/openclaw-ha-addon`）安装并启动 `3dc2fc14_openclaw` (v2026.9.24.1)
+- **执行动作**：
+  1. 执行 `ha apps stop local_openclaw` 与 `ha apps uninstall local_openclaw`，清理 `/addons/openclaw` 本地残留；
+  2. 优化 `openclaw/Dockerfile`（阿里 Alpine 源加速 + tini 软链与 node 用户）与 `openclaw/config.yaml`（对齐 `app_config:rw` 本地构建），推送到 GitHub `sunboss/openclaw-ha-addon`；
+  3. 在 HA Store 注册 `https://github.com/sunboss/openclaw-ha-addon`（仓库哈希 `3dc2fc14`），触发 `ha apps install 3dc2fc14_openclaw` 完成构建与安装并启动。
+- **真实返回证据**：
+  - 构建与安装日志：`Build 3dc2fc14/aarch64-addon-openclaw:2026.9.24.1 done`，`App '3dc2fc14_openclaw' successfully installed`
+  - 容器运行状态：`app_3dc2fc14_openclaw Up (0.0.0.0:18789->18789/tcp)`
+  - 端口与 HTTP 校验：`8099`、`18789`、`18790` 均处于 `LISTEN` 状态；`curl -I http://192.168.1.66:18789/` 返回 `HTTP/1.1 200 OK`
+- **关联 JSON 存档**：`ops/history/20260924_234000_remote_store_install_success.json`
+- **回滚点**：`/mnt/data/supervisor/app_configs/3dc2fc14_openclaw/.openclaw/`
+
 ## [2026-09-24T22:40:00+08:00] deploy: OpenClaw 加载项正式部署上线与双通道验证成功 (2026.9.24.1)
 - **执行 Agent**：Hermes Agent
 - **操作目标**：部署、排查并上线 `local_openclaw` (v2026.9.24.1) 至 HAOS 宿主机 (`192.168.1.66`)
