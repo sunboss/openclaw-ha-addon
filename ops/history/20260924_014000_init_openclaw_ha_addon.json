@@ -1,0 +1,27 @@
+{
+  "timestamp": "2026-09-24T01:40:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "deploy",
+  "summary": "初始化独立 OpenClaw Home Assistant OS Add-on 工程 (/Users/sunboss/Desktop/openclaw-ha-addon)，完备 GitHub Actions 自动化构建、专职 Bots 维护规范 (AGENTS.md)、排障 SOP 与全量数据持久化保障",
+  "commands": [
+    "mkdir -p /Users/sunboss/Desktop/openclaw-ha-addon",
+    "generate openclaw/config.yaml, Dockerfile, run.sh, nginx.conf, scripts/configure.py",
+    "generate .github/workflows/build-images.yml & lint.yml",
+    "render custom Lobster icon.png & logo.png",
+    "git commit standalone repo"
+  ],
+  "result_status": "success",
+  "verification_evidence": {
+    "repo_path": "/Users/sunboss/Desktop/openclaw-ha-addon",
+    "ingress_port": 8099,
+    "direct_lan_port": 18789,
+    "internal_gateway_port": 18790,
+    "pid1_init": "tini",
+    "persistence_path": "/config/.openclaw"
+  },
+  "rollback_point": "git reset --hard d8e761a",
+  "next_steps": [
+    "后续专门维护 OpenClaw 的 AI Bot 直接读取根目录 AGENTS.md 即可接手全部开发与运维工作",
+    "在 GitHub 创建 sunboss/openclaw-ha-addon 远程仓库并执行 git push -u origin main 即可触发 GHCR 镜像自动编译"
+  ]
+}

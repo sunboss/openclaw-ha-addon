@@ -1,0 +1,5 @@
+build_from:
+  aarch64: "node:22-bookworm-slim"
+  amd64: "node:22-bookworm-slim"
+args:
+  BUILD_VERSION: "2026.9.24.1"
