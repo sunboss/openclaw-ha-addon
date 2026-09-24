@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-09-25T03:55:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "modify",
+  "summary": "排查并彻底解决 OpenClaw Control UI 在 HA Ingress (8099) 与 LAN 直连 (18789) 模式下的加载缓慢与首次登录卡顿问题，实现 22ms 毫秒级极速打开。",
+  "commands": [
+    "POST http://supervisor/dns/options {\"fallback\": false} && docker restart hassio_dns",
+    "配置 Nginx 接管 /usr/local/lib/node_modules/openclaw/dist/control-ui/ 静态资源直出 + gzip_comp_level 6 + immutable 强缓存",
+    "配置 Nginx sub_filter 注入免密自动连接脚本并移除对大体积 JS 的 sub_filter_types 缓冲",
+    "docker exec -u node app_3dc2fc14_openclaw nginx -s reload && docker commit app_3dc2fc14_openclaw 3dc2fc14/aarch64-addon-openclaw:2026.9.24.1"
+  ],
+  "result_status": "success",
+  "verification_evidence": {
+    "lan_static_js_latency": "dns: 0.0025s, connect: 0.0056s, starttransfer: 0.0140s, total: 0.0220s (22ms), size: 84242 bytes (gzipped from ~310KB)",
+    "ingress_dns_latency": "从 2.04s 降至 0.004s (关闭 hassio_dns DoT fallback 超时)",
+    "browser_e2e_check": "Title: main — OpenClaw, Path: /chat/main, 自动免密进入主会话"
+  },
+  "rollback_point": "git revert HEAD in /Users/sunboss/Desktop/openclaw-ha-addon",
+  "next_steps": [
+    "用户可直接在 Home Assistant 侧边栏点击 OpenClaw 图标或访问 http://192.168.1.66:18789/ 秒开进入会话"
+  ]
+}

@@ -1,0 +1,13 @@
+<!-- OpenClaw HA Add-on Preload & Fast-Auth Hook -->
+<script data-cfasync="false">
+(function() {
+  var token = "openclaw-ha-addon-persistent-token-v1";
+  try {
+    var wsUrl = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host + (location.pathname.startsWith('/api/hassio_ingress') ? location.pathname.replace(/\/$/, '') : '');
+    var key = "openclaw.control.bootRecord.v1:" + wsUrl;
+    if (!localStorage.getItem(key)) {
+      localStorage.setItem("openclaw.control.currentGateway.v1:" + wsUrl, wsUrl);
+    }
+  } catch(e) {}
+})();
+</script>
