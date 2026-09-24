@@ -1,5 +1,20 @@
 # Operations Log
 
+## [2026-09-25T05:05:00+08:00] deploy: 升级 OpenClaw 侧边栏图标为 Microsoft Fluent 3D Color 工业级高精多层渐变矢量
+- **执行 Agent**：Hermes Agent
+- **操作目标**：解决第一版手工几何 SVG 矢量粗糙的问题，替换为工业界最高水准的 Microsoft Fluent 3D Color 官方高保真立体光影龙虾矢量（34KB 多层渐变 SVG）
+- **执行动作**：
+  1. 采集并渲染对比了 Microsoft Fluent 3D Color 与 Unicode/Twemoji 官方矢量，选定 3D 体积感、甲壳曲面高光与双鳌造型最惊艳的 Fluent 3D Color 方案；
+  2. 将完整的 34KB 多级径向/线性渐变矢量与微投影（drop-shadow）集成至 `/config/www/openclaw-lobster-icon.js`；
+  3. 强化节点挂载隔离机制（`cleanupNonOpenclawItems`），确保仅 `OpenClaw` 独享 3D 龙虾，而 `Node-RED` 纯净展示树状流程图（`mdi:sitemap`）；
+  4. 更新 `configuration.yaml` 缓存穿透参数为 `?v=fluent3d_v4` 并完成全链路视觉审计。
+- **真实验证证据**：
+  - `Hermes Agent` -> 线条机器人头像（`mdi:robot-excited-outline`）；
+  - `Node-RED` -> 纯净三节点树状流程图（`mdi:sitemap`）；
+  - `OpenClaw` -> Microsoft Fluent 3D Color 立体高光珊瑚红/朱红渐变龙虾；
+  - 视觉模型局部放大与全景审查结论：“体积感饱满、甲壳光泽通透、边缘锐利干净，三者风格与辨识度非常完美”。
+- **关联归档**：`ops/history/20260925_050500_upgrade_to_fluent_3d_lobster_icon.json`
+
 ## [2026-09-25T04:25:00+08:00] deploy: OpenClaw 侧边栏专属红橙色全彩小龙虾图标定制与侧边栏图标辨识度修复
 - **执行 Agent**：Hermes Agent
 - **操作目标**：响应用户指令拒绝统一机器人图标，将 OpenClaw 侧边栏图标定制为专属全彩红橙色小龙虾（Lobster/Claw）矢量图标，并修复 Node-RED 侧边栏图标缺失
