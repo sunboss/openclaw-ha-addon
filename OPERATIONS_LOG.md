@@ -1,5 +1,22 @@
 # Operations Log
 
+## [2026-09-25T05:35:00+08:00] deploy: Hermes Agent 方案 B（神使飞翼战盔）侧边栏实装与 Supervisor DNS「系统不受支持」告警彻底根治
+- **执行 Agent**：Hermes Agent
+- **操作目标**：
+  1. 落地用户选定的 Hermes Agent 方案 B 专属图标（神使飞翼战盔 Winged Helmet），与 OpenClaw 3D 龙虾形成双引擎高精 3D 侧边栏，并完成文本像素级对齐；
+  2. 彻底排查并根除 Home Assistant Supervisor 弹出的「系统不受支持 - DNS 服务器问题」警告。
+- **执行动作**：
+  1. 将方案 B 3D 矢量（银蓝金属弧面盔体 + 金黄十字顶棱面甲 + 纯白展翅飞翼 + 边缘防泛白描边）与 OpenClaw 3D 龙虾合并升级至 `/config/www/openclaw-lobster-icon.js`；
+  2. 微调 `margin-inline-end: 0px`，消除额外间距，使 Hermes Agent 与 OpenClaw 的文字与原生菜单项（Node-RED、媒体、地图等）实现像素级垂直严密对齐；
+  3. 诊断 Supervisor DNS 告警：定位到宿主机局域网 DNS 中包含境外 `dns://1.1.1.1`，在国内宽带环境下丢包触发 `dns_server_failed`，叠加之前禁用了 fallback 触发了安全警报；
+  4. 通过 Supervisor API 配置高可靠国内 DNS 服务集群 `["dns://223.5.5.5", "dns://119.29.29.29", "dns://192.168.1.1"]` 并重新启用 `fallback: true`；
+  5. 触发 Supervisor `/resolution/healthcheck` 并 Dismiss 历史 issue，确认 `unsupported: []` 与 `unhealthy: []`，内部解析保持在 2.5ms 极速响应。
+- **真实验证证据**：
+  - `Supervisor Resolution`：`unsupported: []`，`unhealthy: []`，系统不受支持警告彻底消失；
+  - `DNS 速度实测`：`dns: 0.0025s`，内部解析耗时 2.5 毫秒；
+  - `视觉模型核查`：方案 B 飞翼战盔立体质感饱满、双飞翼对称舒展，与 OpenClaw 3D 龙虾一冷一暖、辨识度拉满。
+- **关联归档**：`ops/history/20260925_053500_hermes_winged_helmet_and_dns_resolution_fix.json`
+
 ## [2026-09-25T05:05:00+08:00] deploy: 升级 OpenClaw 侧边栏图标为 Microsoft Fluent 3D Color 工业级高精多层渐变矢量
 - **执行 Agent**：Hermes Agent
 - **操作目标**：解决第一版手工几何 SVG 矢量粗糙的问题，替换为工业界最高水准的 Microsoft Fluent 3D Color 官方高保真立体光影龙虾矢量（34KB 多层渐变 SVG）

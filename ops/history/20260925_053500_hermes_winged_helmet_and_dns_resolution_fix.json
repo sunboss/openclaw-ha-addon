@@ -1,0 +1,22 @@
+{
+  "timestamp": "2026-09-25T05:35:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "deploy",
+  "summary": "1. 为 Hermes Agent 部署方案 B「神使飞翼战盔 (Winged Helmet)」高精度 3D 侧边栏图标并与原生菜单文本像素级对齐；2. 修复 Supervisor 因 1.1.1.1 超时与 fallback 禁用触发的「系统不受支持 - DNS 服务器问题」警告，配置国内高速 DNS (223.5.5.5/119.29.29.29/192.168.1.1) 并恢复 unsupported=[]。",
+  "commands": [
+    "将方案 B (Winged Helmet) 3D 矢量与 OpenClaw (Fluent 3D Lobster) 双引擎整合至 /config/www/openclaw-lobster-icon.js",
+    "POST http://supervisor/dns/options 配置 servers: [dns://223.5.5.5, dns://119.29.29.29, dns://192.168.1.1], fallback: true",
+    "POST http://supervisor/resolution/healthcheck 重新校验并清理旧 DNS issue"
+  ],
+  "result_status": "success",
+  "verification_evidence": {
+    "hermes_icon": "侧边栏 #sidebar-panel-1037d332_hermes_agent 完美渲染银蓝战盔 + 金黄十字顶棱 + 洁白双飞翼，文字与原生菜单像素级对齐",
+    "openclaw_icon": "侧边栏 #sidebar-panel-3dc2fc14_openclaw 完美渲染 Microsoft Fluent 3D 龙虾",
+    "supervisor_resolution": "unsupported: [], unhealthy: [], DNS 告警彻底消除",
+    "dns_latency": "dns_namelookup = 0.0025s (2.5ms), total = 0.082s (82ms)"
+  },
+  "rollback_point": "git revert HEAD in /Users/sunboss/Desktop/openclaw-ha-addon",
+  "next_steps": [
+    "侧边栏双 3D 图标与 DNS 健康状态均已稳定持久化"
+  ]
+}
