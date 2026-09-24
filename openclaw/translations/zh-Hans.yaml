@@ -1,0 +1,21 @@
+configuration:
+  llm_model:
+    name: 默认大模型 (LLM Model)
+    description: 指定 OpenClaw 使用的默认模型（例如 claude-3-7-sonnet 或 gemini-3.8-flash-high）。
+  openai_base_url:
+    name: OpenAI 兼容网关地址 (Base URL)
+    description: 您的 API 网关地址（如 https://api.1234r.com/v1）。
+  openai_api_key:
+    name: API 密钥 (API Key)
+    description: 对应 API 网关的访问密钥。
+  gateway_token:
+    name: OpenClaw 网关令牌 (Gateway Token)
+    description: 用于连接 Control UI 的安全令牌（已默认持久化生成）。
+  telegram_bot_token:
+    name: Telegram 机器人令牌 (可选)
+    description: 填入后自动连接您的 Telegram Bot。
+  discord_bot_token:
+    name: Discord 机器人令牌 (可选)
+    description: 填入后自动连接您的 Discord Bot。
+network:
+  18789/tcp: OpenClaw Control UI 控制台局域网直连端口

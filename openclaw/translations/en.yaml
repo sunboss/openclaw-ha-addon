@@ -1,0 +1,21 @@
+configuration:
+  llm_model:
+    name: Default LLM Model
+    description: The default language model for OpenClaw (e.g., claude-3-7-sonnet, gemini-3.8-flash-high).
+  openai_base_url:
+    name: OpenAI-Compatible Base URL
+    description: Your custom API gateway base URL.
+  openai_api_key:
+    name: API Key
+    description: API key for the model provider.
+  gateway_token:
+    name: OpenClaw Gateway Token
+    description: Persistent token used for Control UI authentication.
+  telegram_bot_token:
+    name: Telegram Bot Token (Optional)
+    description: Connect your Telegram bot automatically.
+  discord_bot_token:
+    name: Discord Bot Token (Optional)
+    description: Connect your Discord bot automatically.
+network:
+  18789/tcp: OpenClaw Control UI Direct LAN Port
