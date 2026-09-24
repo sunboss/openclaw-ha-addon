@@ -1,5 +1,23 @@
 # Operations Log
 
+## [2026-09-24T22:40:00+08:00] deploy: OpenClaw 加载项正式部署上线与双通道验证成功 (2026.9.24.1)
+- **执行 Agent**：Hermes Agent
+- **操作目标**：部署、排查并上线 `local_openclaw` (v2026.9.24.1) 至 HAOS 宿主机 (`192.168.1.66`)
+- **执行动作**：
+  1. 通过 HA Supervisor 官方编译器完成 `local/aarch64-addon-openclaw:2026.9.24.1` 镜像构建；
+  2. 修复 Alpine 环境下 `tini` 路径映射与降权兼容；
+  3. 修正 OpenClaw 2026.9 核心配置 Schema（`gateway.auth` 结构化对象、`trustedProxies` 反代白名单、移除废弃键）；
+  4. 启动并验证加载项双通道服务。
+- **真实返回验证**：
+  - `app_local_openclaw` 稳定运行；
+  - LAN 原生通道：`0.0.0.0:18789` -> Nginx -> Gateway；
+  - Ingress 通道：`0.0.0.0:8099` -> Nginx -> Gateway；
+  - 核心网关进程：`0.0.0.0:18790`（`openclaw-gateway` PID 7，ready 状态，心跳正常，加载全部 10+ 插件）。
+- **关联归档**：`ops/history/20260924_224000_openclaw_deploy_success.json`
+- **下阶段接入**：专职 OpenClaw Bots 按照 `AGENTS.md` 接管日常技能扩展与多渠道对接。
+
+---
+
 ## [2026-09-24T01:40:00+08:00] init: 建立独立 OpenClaw HAOS Add-on 标准工程与专职 Bots 运维体系 (2026.9.24.1)
 - **执行 Agent**：Hermes Agent
 - **操作目标**：按照工业级标准新建独立的 OpenClaw Home Assistant OS 加载项工程，实现与 Hermes Agent 项目的完全解耦，供后续专门的 AI Bots 独立接管。

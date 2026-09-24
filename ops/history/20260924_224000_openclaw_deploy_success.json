@@ -1,0 +1,15 @@
+{
+  "timestamp": "2026-09-24T22:40:00+08:00",
+  "agent": "Hermes Agent",
+  "action_type": "deploy",
+  "summary": "成功完成 openclaw-ha-addon (v2026.9.24.1) 在 HAOS 宿主机 (192.168.1.66) 上的官方加载项编译与双通道部署上线",
+  "commands": [
+    "docker exec -u 0 hassio_cli ha apps install local_openclaw",
+    "docker commit with patched entrypoint tini and run.sh",
+    "docker exec -u 0 hassio_cli ha apps start local_openclaw"
+  ],
+  "result_status": "success",
+  "verification_evidence": "app_local_openclaw Up 2+ minutes; LISTEN 18789 (Nginx LAN), LISTEN 8099 (Nginx Ingress), LISTEN 18790 (openclaw-gateway PID 7); gateway ready & heartbeat started",
+  "rollback_point": "local/aarch64-addon-openclaw:2026.9.24.1 镜像快照与 /mnt/data/supervisor/app_configs/openclaw/.openclaw 持久化数据",
+  "next_steps": "专职 OpenClaw Bots 按照 /Users/sunboss/Desktop/openclaw-ha-addon/AGENTS.md 接管日常技能扩展与多渠道机器人对接"
+}

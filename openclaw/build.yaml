@@ -1,5 +1,5 @@
 build_from:
-  aarch64: "node:22-bookworm-slim"
-  amd64: "node:22-bookworm-slim"
+  aarch64: "ghcr.io/home-assistant/aarch64-base:latest"
+  amd64: "ghcr.io/home-assistant/amd64-base:latest"
 args:
   BUILD_VERSION: "2026.9.24.1"

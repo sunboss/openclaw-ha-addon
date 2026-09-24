@@ -17,25 +17,26 @@ mkdir -p /data "${ADDON_STATE_ROOT}" "${OPENCLAW_HOME}"
 
 # ── 权限处理与首次配置渲染 ───────────────────────────────────────────────
 if [ "$(id -u)" = "0" ] && [ "${OPENCLAW_PRIVILEGE_DROPPED:-}" != "1" ]; then
-  python3 /opt/openclaw-ha-scripts/configure.py
+  python3 /opt/openclaw-ha-scripts/configure.py || true
 
-  chown -R node:node "${ADDON_STATE_ROOT}" /tmp/nginx_* 2>/dev/null || true
-
-  export OPENCLAW_PRIVILEGE_DROPPED=1
-  export OPENCLAW_CONFIGURED=1
-  echo "[run.sh] Dropping privileges to node user (OPENCLAW_HOME=${OPENCLAW_HOME})..."
-  if command -v gosu >/dev/null 2>&1; then
-    exec gosu node "$0" "$@"
-  fi
-  for candidate in /command/s6-setuidgid /usr/bin/s6-setuidgid /bin/s6-setuidgid; do
-    if [ -x "${candidate}" ]; then
-      exec "${candidate}" node "$0" "$@"
+  # 检查是否有 node 用户，没有则不降权直接运行
+  if id -u node >/dev/null 2>&1; then
+    chown -R node:node "${ADDON_STATE_ROOT}" /tmp/nginx_* 2>/dev/null || true
+    export OPENCLAW_PRIVILEGE_DROPPED=1
+    export OPENCLAW_CONFIGURED=1
+    echo "[run.sh] Dropping privileges to node user (OPENCLAW_HOME=${OPENCLAW_HOME})..."
+    if command -v su-exec >/dev/null 2>&1; then
+      exec su-exec node "$0" "$@"
+    elif command -v gosu >/dev/null 2>&1; then
+      exec gosu node "$0" "$@"
     fi
-  done
+  else
+    echo "[run.sh] Running as root (node user not found)..."
+  fi
 fi
 
 if [ "${OPENCLAW_CONFIGURED:-}" != "1" ]; then
-  python3 /opt/openclaw-ha-scripts/configure.py
+  python3 /opt/openclaw-ha-scripts/configure.py || true
 fi
 
 # ── 加载持久化环境变量 ───────────────────────────────────────────────────
@@ -62,5 +63,6 @@ fi
 
 # ── 启动 OpenClaw Gateway（前台运行，监听 127.0.0.1:18790）───────────────
 echo "[run.sh] Starting OpenClaw Gateway (OPENCLAW_HOME=${OPENCLAW_HOME})..."
+export OPENCLAW_CONFIG_PATH="${OPENCLAW_HOME}/openclaw.json"
 cd "${OPENCLAW_HOME}"
-exec openclaw gateway --port 18790 --verbose
+exec openclaw gateway --port 18790 --allow-unconfigured --verbose

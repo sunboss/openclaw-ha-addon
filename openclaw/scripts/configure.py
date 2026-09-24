@@ -34,12 +34,14 @@ def main() -> int:
     for sub in ("workspace", "skills", "sessions", "credentials"):
         (openclaw_home / sub).mkdir(parents=True, exist_ok=True)
 
+    token = options.get("gateway_token") or "openclaw-ha-addon-persistent-token-v1"
+
     # 1. 渲染持久化环境变量 .env
     env_path = openclaw_home / ".env"
     env_lines = [
         f"OPENCLAW_HOME={openclaw_home}",
         f"OPENCLAW_GATEWAY_PORT=18790",
-        f"OPENCLAW_GATEWAY_TOKEN={options.get('gateway_token') or 'openclaw-ha-addon-persistent-token-v1'}",
+        f"OPENCLAW_GATEWAY_TOKEN={token}",
     ]
 
     base_url = options.get("openai_base_url") or "https://api.1234r.com/v1"
@@ -50,6 +52,8 @@ def main() -> int:
         env_lines.append(f"OPENAI_API_KEY={api_key}")
     if base_url:
         env_lines.append(f"OPENAI_BASE_URL={base_url}")
+    if model:
+        env_lines.append(f"OPENCLAW_MODEL={model}")
     if options.get("telegram_bot_token"):
         env_lines.append(f"TELEGRAM_BOT_TOKEN={options.get('telegram_bot_token')}")
     if options.get("discord_bot_token"):
@@ -57,7 +61,7 @@ def main() -> int:
 
     env_path.write_text("\n".join(env_lines) + "\n", encoding="utf-8")
 
-    # 2. 渲染 openclaw.json 核心配置
+    # 2. 渲染 openclaw.json 核心配置 (符合 OpenClaw 2026.9 Schema)
     cfg_path = openclaw_home / "openclaw.json"
     cfg = {}
     if cfg_path.exists():
@@ -66,11 +70,19 @@ def main() -> int:
         except Exception:
             cfg = {}
 
+    # 移除不兼容的旧键
+    cfg.pop("model", None)
+
     gateway_cfg = cfg.get("gateway") or {}
     gateway_cfg["mode"] = "local"
     gateway_cfg["bind"] = "lan"
     gateway_cfg["port"] = 18790
-    gateway_cfg["auth"] = "token"
+    gateway_cfg["auth"] = {
+        "mode": "token",
+        "token": token,
+    }
+
+    gateway_cfg["trustedProxies"] = ["127.0.0.1", "::1", "172.30.32.0/23", "172.17.0.0/16"]
 
     control_ui = gateway_cfg.get("controlUi") or {}
     control_ui["allowedOrigins"] = [
@@ -80,15 +92,11 @@ def main() -> int:
         "http://localhost:18789",
         "http://127.0.0.1:8099",
         "http://localhost:8099",
+        "http://192.168.1.66:18789",
+        "http://192.168.1.66:8123",
     ]
     gateway_cfg["controlUi"] = control_ui
     cfg["gateway"] = gateway_cfg
-
-    model_cfg = cfg.get("model") or {}
-    model_cfg["default"] = model
-    if base_url:
-        model_cfg["baseUrl"] = base_url
-    cfg["model"] = model_cfg
 
     cfg_path.write_text(json.dumps(cfg, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"[configure.py] Successfully rendered OpenClaw config to {cfg_path}")
